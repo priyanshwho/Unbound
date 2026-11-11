@@ -26,6 +26,27 @@ function schemaRole(type: string): ColumnRole {
   return 'Auto'
 }
 
+async function readApiResponse(response: Response): Promise<unknown> {
+  const body = await response.text()
+  if (!body.trim()) throw new Error(`The local API returned an empty response (${response.status}). Check that the backend is running.`)
+  let result: unknown
+  try {
+    result = JSON.parse(body)
+  } catch {
+    throw new Error(`The local API returned an unreadable response (${response.status}). Check that the backend is running.`)
+  }
+  if (!response.ok) {
+    const detail = typeof result === 'object' && result !== null && 'detail' in result ? result.detail : undefined
+    throw new Error(typeof detail === 'string' ? detail : `The local API request failed (${response.status}).`)
+  }
+  return result
+}
+
+function requestError(reason: unknown, fallback: string) {
+  if (reason instanceof TypeError) return 'Local API is offline. Start the FastAPI backend, then retry.'
+  return reason instanceof Error ? reason.message : fallback
+}
+
 export default function Workspace() {
   const inputRef = useRef<HTMLInputElement>(null)
   const joinRequestId = useRef(0)
@@ -41,6 +62,7 @@ export default function Workspace() {
   const [joinBusy, setJoinBusy] = useState(false)
   const [joinError, setJoinError] = useState('')
   const [notice, setNotice] = useState('')
+  const previouslyOnline = useRef(false)
 
   const datasets = useMemo(() => entries.flatMap(entry => entry.profile ? [entry.profile] : []), [entries])
   const leftDataset = datasets.find(dataset => dataset.id === leftDatasetId)
@@ -49,11 +71,18 @@ export default function Workspace() {
 
   useEffect(() => {
     let active = true
-    fetch('/api/v1/health').then(response => {
-      if (!response.ok) throw new Error('Local API is offline')
-      if (active) setApiOnline(true)
-    }).catch(() => { if (active) setApiOnline(false) })
-    return () => { active = false }
+    async function checkHealth() {
+      try {
+        const response = await fetch('/api/v1/health')
+        if (!response.ok) throw new Error('Local API is offline')
+        if (active) setApiOnline(true)
+      } catch {
+        if (active) setApiOnline(false)
+      }
+    }
+    void checkHealth()
+    const interval = window.setInterval(() => void checkHealth(), 5000)
+    return () => { active = false; window.clearInterval(interval) }
   }, [])
 
   function addFiles(fileList: FileList | File[]) {
@@ -82,17 +111,24 @@ export default function Workspace() {
         const form = new FormData()
         form.append('file', entry.file)
         const response = await fetch('/api/v1/datasets/upload', { method: 'POST', body: form })
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.detail ?? 'The local API could not profile this CSV.')
+        const result = await readApiResponse(response)
         const profile = result as DatasetProfile
         setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'ready', profile } : item))
         setLeftDatasetId(current => current || profile.id)
         setNotice(`${profile.name} is ready for schema review.`)
       } catch (reason) {
-        setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'error', message: reason instanceof Error ? reason.message : 'Upload failed.' } : item))
+        setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'error', message: requestError(reason, 'Upload failed.') } : item))
       }
     }
   }
+
+  useEffect(() => {
+    const justConnected = apiOnline && !previouslyOnline.current
+    previouslyOnline.current = apiOnline
+    if (!justConnected) return
+    const interrupted = entries.filter(entry => entry.status === 'error' && /Unexpected end of JSON input|Local API is offline|local API returned an empty response/i.test(entry.message ?? ''))
+    if (interrupted.length) void processFiles(interrupted)
+  }, [apiOnline, entries])
 
   function onInputChange(event: ChangeEvent<HTMLInputElement>) {
     if (event.target.files) addFiles(event.target.files)
@@ -141,11 +177,10 @@ export default function Workspace() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ left_dataset_id: leftDataset.id, left_column: leftColumn, right_dataset_id: rightDataset.id, right_column: rightColumn }),
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.detail ?? 'The join preview could not be calculated.')
+      const result = await readApiResponse(response)
       if (requestId === joinRequestId.current) setJoin(result as JoinResult)
     } catch (reason) {
-      if (requestId === joinRequestId.current) setJoinError(reason instanceof Error ? reason.message : 'The join preview could not be calculated.')
+      if (requestId === joinRequestId.current) setJoinError(requestError(reason, 'The join preview could not be calculated.'))
     } finally {
       if (requestId === joinRequestId.current) setJoinBusy(false)
     }
