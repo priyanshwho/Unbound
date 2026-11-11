@@ -1,49 +1,42 @@
 # Unbound
 
-Unbound is a local-first CSV analytics workspace. This first implementation slice provides CSV upload and profiling, natural-language questions through Ollama, backend-calculated answers using DuckDB, and a Recharts dashboard generated from the selected file.
+Unbound is a local-first CSV analytics workspace. The project plan is in [PROJECT_PLAN.md](PROJECT_PLAN.md). The current starter implements the public landing and product pages, sign-in and sign-up UI, a local CSV upload and schema review, and the versioned FastAPI health and profile endpoints.
 
-## Requirements
+## Project structure
 
-- Node.js 20 or newer
-- Python 3.11 or newer
-- Ollama with `gemma3:4b` installed
+- `frontend/` — React 19, TypeScript, Vite, Tailwind CSS 4, and React Router.
+- `backend/` — FastAPI local API with DuckDB CSV profiling.
+- `PROJECT_PLAN.md` — product requirements and phased roadmap.
+- `PROJECT_CONTEXT.md` — project decisions and continuity notes.
 
-Ollama is already installed on the target Mac, and the provided terminal output showed `gemma3:4b` loaded successfully. If the model is missing, install it with `ollama pull gemma3:4b`.
+The app uses forest ink and warm ivory as its main colors, with a small clay accent. Manrope is used for headings, DM Sans for body text, and DM Mono for labels.
 
-## Run on macOS
+## Run locally
 
-Keep Ollama available in Terminal 1 (skip if it is already running):
+Use Node.js 22.12 or newer and Python 3.11 or newer.
 
-```bash
-ollama serve
-```
-
-In Terminal 2, start the API from the `Unbound` folder:
+Start the API in one terminal:
 
 ```bash
 cd backend
-python3.12 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-In Terminal 3, start the web app from the `Unbound` folder:
+Start the frontend in another terminal:
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Upload one or more CSVs. The interface keeps each uploaded file in the recent-files list; chat and dashboard calculations currently run against the selected file. Uploads are stored under `backend/data/datasets/` on this Mac.
+Open `http://127.0.0.1:5173`. The CSV upload posts to the local API, which stores files under `backend/data/datasets/` and returns row counts, column types, null counts, distinct counts, and sample values. OpenAPI docs are at `http://127.0.0.1:8000/api/v1/docs`.
 
-## Current prototype limits
+## Current implementation boundary
 
-- This is a local prototype. Sign-up/sign-in, Google OIDC, Neon persistence, cloud sync, publication, and public share links are not wired in yet.
-- A dashboard's Share control is intentionally marked as coming later. Cloud publishing must store an approved dashboard snapshot so viewers can open it without your Mac or Ollama running.
-- Uploading multiple CSVs is supported, but cross-file joins and questions spanning multiple files are not implemented yet.
-- Uploaded CSVs remain on this Mac. Keep the API bound to localhost; do not expose the development API to the public internet.
-- The model chooses a constrained analysis plan. The backend checks its selected columns and computes the result; it does not execute model-generated SQL or Python.
-- Chat history is currently in browser memory and is cleared on reload.
-
-See `PROJECT_PLAN.md` for the complete product flow, recommended hosted architecture, Google OIDC setup, and phased roadmap.
+- Email and Google account forms are UI previews. They do not send or store credentials. Neon Auth and Google OIDC setup are not configured.
+- The workspace can upload and profile one CSV at a time. Natural-language analysis, dashboard generation, saved records, and publishing are next in the project plan.
+- Keep the API bound to localhost. Uploaded CSVs stay on this Mac.

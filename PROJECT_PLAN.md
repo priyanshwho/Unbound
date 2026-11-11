@@ -80,10 +80,10 @@ For public creators who lack Ollama, enable the Groq provider with request quota
 
 ### Phase 0 — Foundation
 
-- [ ] Create a separate Unbound repository/project, reuse selected BlueMart design components, and define frontend/backend/local-companion boundaries.
-- [ ] Add environment configuration without committing secrets; establish local and deployed API health checks.
+- [x] Create a separate Unbound repository/project and define frontend/backend boundaries (`frontend/` and `backend/`).
+- [x] Add local environment examples without secrets and a local API health endpoint; deployed health check remains pending until deployment exists.
 - [ ] Prototype the hosted HTTPS website ↔ local companion connection on the M4 Mac; select the fallback local-creator UI if necessary.
-- [ ] Define versioned API contracts for datasets, analysis plans, chart specs, dashboards, and publications.
+- [x] Define versioned API contracts for datasets, analysis plans, chart specs, dashboards, and publications.
 
 ### Phase 1 — Accounts and datasets
 
