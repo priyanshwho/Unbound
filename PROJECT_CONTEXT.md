@@ -53,10 +53,10 @@ The earlier prototype UI and API were removed during the clean scaffold requeste
 
 - A Vite React and TypeScript frontend with Tailwind CSS 4, React Router, and the planned forest, ivory, and clay palette.
 - Landing, product, sign-in, and sign-up routes. The account screens are UI previews and do not send or store credentials.
-- A local workspace route that uploads one CSV and displays its profiled schema.
-- A FastAPI local API with versioned health and CSV upload/profile endpoints. DuckDB reads CSV data and stores uploads under `backend/data/datasets/`.
+- A local workspace route that uploads up to five CSVs, shows per-file ingestion state and profiled schema, supports temporary column role corrections, and previews join match rates and row multiplication before combining files. Individual datasets can be removed from local storage.
+- A FastAPI local API with versioned health, CSV upload/profile, exact text join preview, and local dataset deletion endpoints. DuckDB reads CSV data and stores uploads under `backend/data/datasets/`.
 
-Not implemented yet: account verification or Google OIDC; Neon persistence; local companion pairing; Ollama analysis; chat and dashboard creation; cloud sync and publication; public/private viewer routes; share revocation or republishing. The detailed order remains in [PROJECT_PLAN.md](PROJECT_PLAN.md), and local run instructions are in [README.md](README.md).
+Not implemented yet: account verification or Google OIDC; Neon persistence; saved chat history and persistent schema corrections; local companion pairing; Ollama analysis; dashboard creation; cloud sync and publication; public/private viewer routes; share revocation or republishing. The detailed order remains in [PROJECT_PLAN.md](PROJECT_PLAN.md), and local run instructions are in [README.md](README.md).
 
 ## Local model setup already confirmed
 

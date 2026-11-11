@@ -9,7 +9,7 @@ Unbound is a local-first CSV analytics workspace. The project plan is in [PROJEC
 - `PROJECT_PLAN.md` — product requirements and phased roadmap.
 - `PROJECT_CONTEXT.md` — project decisions and continuity notes.
 
-The app uses forest ink and warm ivory as its main colors, with a small clay accent. Manrope is used for headings, DM Sans for body text, and DM Mono for labels.
+The app uses forest ink and warm ivory as its main colors, with a small clay accent. Manrope is used for headings, DM Sans for body text, and DM Mono for labels. Workspace motion uses transitions.dev duration and easing tokens, with reduced motion support.
 
 ## Run locally
 
@@ -38,5 +38,5 @@ Open `http://127.0.0.1:5173`. The CSV upload posts to the local API, which store
 ## Current implementation boundary
 
 - Email and Google account forms are UI previews. They do not send or store credentials. Neon Auth and Google OIDC setup are not configured.
-- The workspace can upload and profile one CSV at a time. Natural-language analysis, dashboard generation, saved records, and publishing are next in the project plan.
+- The workspace can upload up to five CSVs, profile their schemas, assign temporary column roles, preview exact text joins, and remove files from local storage. Saved chats, persistent schema corrections, dashboard generation, and publishing are next in the project plan.
 - Keep the API bound to localhost. Uploaded CSVs stay on this Mac.

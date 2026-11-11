@@ -90,7 +90,8 @@ For public creators who lack Ollama, enable the Groq provider with request quota
 - [ ] Create a separate Neon project; enable managed auth and email/password flows.
 - [ ] Create Google Cloud test OAuth project/client, configure basic OIDC scopes and Neon's exact callback, and test Google sign-in.
 - [ ] Add FastAPI token verification and owner-scoped database records.
-- [ ] Implement New Chat, multiple CSV upload, ingestion status, profiling, schema review, and safe join previews.
+- [ ] Implement New Chat with saved conversations and persistent schema corrections.
+- [x] Prototype up to five CSV uploads, per-file ingestion status and profiling, transient column roles, and exact text join previews with match and row-multiplication counts.
 
 ### Phase 2 — Ask the data
 
