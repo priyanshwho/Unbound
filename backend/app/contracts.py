@@ -26,6 +26,24 @@ class DatasetProfile(BaseModel):
     size: int = Field(ge=0)
 
 
+class JoinPreviewRequest(BaseModel):
+    left_dataset_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    left_column: str = Field(min_length=1, max_length=256)
+    right_dataset_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    right_column: str = Field(min_length=1, max_length=256)
+
+
+class JoinPreview(BaseModel):
+    left_rows: int = Field(ge=0)
+    right_rows: int = Field(ge=0)
+    matched_left_rows: int = Field(ge=0)
+    unmatched_left_rows: int = Field(ge=0)
+    matched_keys: int = Field(ge=0)
+    joined_rows: int = Field(ge=0)
+    duplicate_left_keys: int = Field(ge=0)
+    duplicate_right_keys: int = Field(ge=0)
+
+
 class AnalysisPlan(BaseModel):
     measure: str | None = None
     group_by: str | None = None
