@@ -1,6 +1,6 @@
-# DashTide
+# Unbound
 
-DashTide is a local-first CSV analytics workspace. This first implementation slice provides CSV upload and profiling, natural-language questions through Ollama, backend-calculated answers using DuckDB, and a Recharts dashboard generated from the selected file.
+Unbound is a local-first CSV analytics workspace. This first implementation slice provides CSV upload and profiling, natural-language questions through Ollama, backend-calculated answers using DuckDB, and a Recharts dashboard generated from the selected file.
 
 ## Requirements
 
@@ -18,7 +18,7 @@ Keep Ollama available in Terminal 1 (skip if it is already running):
 ollama serve
 ```
 
-In Terminal 2, start the API from the `DashTide` folder:
+In Terminal 2, start the API from the `Unbound` folder:
 
 ```bash
 cd backend
@@ -28,7 +28,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-In Terminal 3, start the web app from the `DashTide` folder:
+In Terminal 3, start the web app from the `Unbound` folder:
 
 ```bash
 npm install

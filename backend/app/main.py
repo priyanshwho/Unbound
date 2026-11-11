@@ -22,7 +22,7 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b")
 MAX_UPLOAD = 50 * 1024 * 1024
 
-app = FastAPI(title="DashTide Local API", version="0.1.0")
+app = FastAPI(title="Unbound Local API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],

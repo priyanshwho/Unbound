@@ -1,4 +1,4 @@
-# DashTide — project plan
+# Unbound — project plan
 
 **Status:** Working name and implementation plan, 11 November 2026  
 **One-line idea:** Upload CSVs, ask questions, build interactive dashboards, and share a published dashboard without requiring viewers to run AI.
@@ -7,8 +7,8 @@
 
 - Existing reference: [BlueMart Retail Intelligence](https://retail-bi.priyanshu.cv/) and its [Retail-Analysis repository](https://github.com/priyanshwho/Retail-Analysis).
 - BlueMart has React/TypeScript/Recharts views and a FastAPI/PostgreSQL analytics API over four prepared retail CSVs. Its six views are Executive Overview, Sales & Trends, Stores & Categories, Risk Analysis, Pareto, and Data Explorer.
-- DashTide generalizes the workflow to one or several user-provided CSVs. Reuse appropriate UI components and analytics patterns, while developing in a separate project or branch so the live BlueMart application is not disrupted.
-- **Name:** DashTide is provisional. Check domain and trademark availability before launch.
+- Unbound generalizes the workflow to one or several user-provided CSVs. Reuse appropriate UI components and analytics patterns, while developing in a separate project or branch so the live BlueMart application is not disrupted.
+- **Name:** Unbound is provisional. Check domain and trademark availability before launch.
 
 ## Product behavior
 
@@ -80,7 +80,7 @@ For public creators who lack Ollama, enable the Groq provider with request quota
 
 ### Phase 0 — Foundation
 
-- [ ] Create a separate DashTide repository/project, reuse selected BlueMart design components, and define frontend/backend/local-companion boundaries.
+- [ ] Create a separate Unbound repository/project, reuse selected BlueMart design components, and define frontend/backend/local-companion boundaries.
 - [ ] Add environment configuration without committing secrets; establish local and deployed API health checks.
 - [ ] Prototype the hosted HTTPS website ↔ local companion connection on the M4 Mac; select the fallback local-creator UI if necessary.
 - [ ] Define versioned API contracts for datasets, analysis plans, chart specs, dashboards, and publications.
