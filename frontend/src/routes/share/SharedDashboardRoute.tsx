@@ -42,6 +42,7 @@ export function SharedDashboardRoute() {
       answer: 'Published aggregate snapshot. Source CSV rows and local paths are not included.',
       plan: { measure: chart.data[0]?.series ?? 'Value', group_by: 'Group', aggregation: 'sum', date_column: null, period: 'all_time', date_grain: null, chart_type: chartType, title: chart.title },
       rows: chart.data.map(row => ({ category: row.label, value: row.value })),
+      quality_issues: [],
     }
     return { ...chart, chartType, result }
   })
