@@ -1,4 +1,4 @@
-import type { AnalysisResponse } from './types'
+import type { AnalysisResponse, GeneratedDashboard } from './types'
 
 export async function askDataset(datasetId: string, question: string): Promise<AnalysisResponse> {
   const response = await fetch('/api/v1/analysis/ask', {
@@ -26,4 +26,18 @@ export async function askDataset(datasetId: string, question: string): Promise<A
     throw new Error(`The analysis request failed (${response.status}).`)
   }
   return result as AnalysisResponse
+}
+
+export async function generateDashboard(datasetId: string): Promise<GeneratedDashboard> {
+  const response = await fetch('/api/v1/analysis/dashboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataset_id: datasetId }),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    const detail = typeof body === 'object' && body !== null && 'detail' in body && typeof body.detail === 'string' ? body.detail : `Dashboard generation failed (${response.status}).`
+    throw new Error(detail)
+  }
+  return body as GeneratedDashboard
 }

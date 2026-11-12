@@ -13,6 +13,7 @@ export type DashboardDraft = {
   title: string
   createdAt: string
   source: AnalysisResponse
+  kpis?: AnalysisResponse[]
   chartType: DashboardChartType
   charts?: DashboardChartDraft[]
   publication?: { shareId: string; visibility: 'public' | 'unlisted' }
@@ -42,15 +43,18 @@ export function buildDashboardSnapshot(draft: DashboardDraft): DashboardSnapshot
     label: String(row.category ?? `Row ${index + 1}`).slice(0, 240),
     value: typeof row.value === 'number' || typeof row.value === 'string' ? row.value : 0,
   }))
-  const firstData = data(charts[0].source)
-  const headline = firstData[0]
+  const kpis = draft.kpis?.length ? draft.kpis : draft.source.plan.group_by ? [] : [draft.source]
   return {
     version: 1,
     dashboardId: draft.id,
     title: draft.title,
     summary: draft.source.answer,
-    warnings: [...new Map(charts.flatMap(chart => chart.source.quality_issues ?? []).map(issue => [`${issue.kind}:${issue.column ?? ''}`, issue.message])).values()].slice(0, 32),
-    kpis: headline ? [{ id: 'leading-value', label: headline.label, value: headline.value }] : [],
+    warnings: [...new Map([...charts.flatMap(chart => chart.source.quality_issues ?? []), ...(draft.kpis ?? []).flatMap(metric => metric.quality_issues ?? [])].map(issue => [`${issue.kind}:${issue.column ?? ''}`, issue.message])).values()].slice(0, 32),
+    kpis: kpis.flatMap((source, index) => source.rows.slice(0, 1).map(row => ({
+      id: `metric-${index}`,
+      label: source.plan.measure ?? 'Rows analyzed',
+      value: typeof row.value === 'string' || typeof row.value === 'number' ? row.value : 0,
+    }))),
     charts: charts.map(chart => ({ id: chart.id, title: chart.title, type: chart.chartType === 'table' ? 'bar' : chart.chartType, data: data(chart.source) })),
     filters: [],
   }

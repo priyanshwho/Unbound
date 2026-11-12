@@ -16,3 +16,5 @@ export type AnalysisResponse = {
   rows: Array<Record<string, string | number | null>>
   quality_issues: Array<{ kind: string; severity: 'high' | 'medium' | 'low'; column: string | null; count: number; message: string }>
 }
+
+export type GeneratedDashboard = { dataset_id: string; title: string; kpis: AnalysisResponse[]; charts: AnalysisResponse[] }

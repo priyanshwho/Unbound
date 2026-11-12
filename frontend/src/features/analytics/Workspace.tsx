@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { WorkspaceLayout } from './components/WorkspaceLayout'
 import { AlertTriangle, ArrowDown, ArrowLeftRight, Check, Database, FileSpreadsheet, LoaderCircle, Plus, Trash2, Upload, X } from 'lucide-react'
-import { askDataset } from '../analysis-chat/api'
+import { askDataset, generateDashboard as generateDatasetDashboard } from '../analysis-chat/api'
 
 type ColumnProfile = { name: string; type: string; nulls: number; distinct: number; samples: string[] }
 type QualityIssue = { kind: 'missing_values' | 'duplicate_ids' | 'duplicate_rows' | 'outliers'; severity: 'high' | 'medium' | 'low'; column: string | null; count: number; message: string }
@@ -284,7 +284,11 @@ export default function Workspace({ initialChatId }: { initialChatId?: string })
     return askDataset(datasetId, question)
   }
 
-  return <WorkspaceLayout initialChatId={initialChatId} apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} persistenceAvailable={apiOnline && persistenceAvailable} datasets={datasets} selectedDatasetId={selectedDatasetId} onSelectDataset={setQuestionDatasetId} onAskQuestion={askQuestion}>
+  async function buildDashboard(datasetId: string) {
+    return generateDatasetDashboard(datasetId)
+  }
+
+  return <WorkspaceLayout initialChatId={initialChatId} apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} persistenceAvailable={apiOnline && persistenceAvailable} datasets={datasets} selectedDatasetId={selectedDatasetId} onSelectDataset={setQuestionDatasetId} onAskQuestion={askQuestion} onGenerateDashboard={buildDashboard}>
       <main className="min-w-0 px-5 py-8 md:px-10 md:py-11">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-wrap items-end justify-between gap-4">

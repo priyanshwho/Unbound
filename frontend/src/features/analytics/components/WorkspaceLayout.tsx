@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { Link, useNavigate } from 'react-router-dom'
 import { Database, LayoutDashboard, Menu, MessageSquareText, Plus, Sparkles, X } from 'lucide-react'
 import { BrandMark } from '../../../components/ui/BrandMark'
-import type { AnalysisResponse } from '../../analysis-chat/types'
+import type { AnalysisResponse, GeneratedDashboard } from '../../analysis-chat/types'
 import { listDashboards, saveDashboard } from '../dashboard-types'
 
 type DatasetLink = { id: string; name: string }
@@ -16,6 +16,7 @@ type WorkspaceLayoutProps = {
   selectedDatasetId: string
   onSelectDataset: (datasetId: string) => void
   onAskQuestion: (question: string, datasetId: string) => Promise<AnalysisResponse>
+  onGenerateDashboard: (datasetId: string) => Promise<GeneratedDashboard>
   children: ReactNode
 }
 
@@ -32,7 +33,7 @@ function getSavedChats(): ChatSummary[] {
   }
 }
 
-export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persistenceAvailable, datasets, selectedDatasetId, onSelectDataset, onAskQuestion, children }: WorkspaceLayoutProps) {
+export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persistenceAvailable, datasets, selectedDatasetId, onSelectDataset, onAskQuestion, onGenerateDashboard, children }: WorkspaceLayoutProps) {
   const navigate = useNavigate()
   const [leftOpen, setLeftOpen] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
@@ -45,6 +46,7 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
   const [answer, setAnswer] = useState<AnalysisResponse | null>(chats[0]?.lastResult ?? null)
   const [askError, setAskError] = useState('')
   const [asking, setAsking] = useState(false)
+  const [buildingDashboard, setBuildingDashboard] = useState(false)
 
   useEffect(() => {
     if (!persistenceAvailable) return
@@ -79,11 +81,23 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
     return () => { active = false }
   }, [persistenceAvailable])
 
-  function createDashboard() {
-    if (!answer) return
-    const dashboardId = crypto.randomUUID()
-    saveDashboard({ version: 1, id: dashboardId, revision: 0, title: answer.plan.title || 'Analysis dashboard', createdAt: new Date().toISOString(), source: answer, chartType: answer.plan.chart_type })
-    navigate(`/analytics/dashboards/${dashboardId}`)
+  async function createDashboard() {
+    if (!selectedDatasetId || buildingDashboard) return
+    setBuildingDashboard(true)
+    setAskError('')
+    try {
+      const generated = await onGenerateDashboard(selectedDatasetId)
+      const source = generated.charts[0] ?? generated.kpis[0]
+      if (!source) throw new Error('This file does not have enough usable data to build a dashboard yet.')
+      const dashboardId = crypto.randomUUID()
+      const charts = generated.charts.map((result, index) => ({ id: crypto.randomUUID(), title: result.plan.title, source: result, chartType: result.plan.chart_type }))
+      saveDashboard({ version: 1, id: dashboardId, revision: 0, title: generated.title, createdAt: new Date().toISOString(), source, chartType: charts[0]?.chartType ?? source.plan.chart_type, charts, kpis: generated.kpis })
+      navigate(`/analytics/dashboards/${dashboardId}`)
+    } catch (reason) {
+      setAskError(reason instanceof Error ? reason.message : 'Could not build a dashboard from this file.')
+    } finally {
+      setBuildingDashboard(false)
+    }
   }
 
   function createChat() {
@@ -219,7 +233,7 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
       <span className="hidden text-[10px] font-medium text-muted sm:inline">Local analytics</span>
       <div className="ml-auto flex items-center gap-2">
       <span className="mr-1 hidden items-center gap-2 text-[10px] text-muted sm:inline-flex"><i className={`size-1.5 rounded-full ${apiOnline && ollamaOnline ? 'bg-lime' : 'bg-amber-400'}`}/>{!apiOnline ? 'API offline' : ollamaOnline ? 'Ollama ready' : 'Ollama offline'}</span>
-        <button type="button" onClick={createDashboard} disabled={!answer} title={answer ? 'Create a dashboard from the current analysis' : 'Ask a question first'} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[10px] font-bold text-text-soft hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"><LayoutDashboard size={14}/> Dashboard</button>
+        <button type="button" onClick={() => void createDashboard()} disabled={!selectedDatasetId || !apiOnline || buildingDashboard} title="Build a dashboard from the selected CSV" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[10px] font-bold text-text-soft hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"><LayoutDashboard size={14}/>{buildingDashboard ? 'Building…' : 'Build dashboard'}</button>
         <button type="button" aria-label="Open assistant" onClick={() => setAssistantOpen(true)} className="grid size-10 place-items-center rounded-xl border border-line-strong bg-surface-1 text-accent hover:bg-accent-soft xl:hidden"><MessageSquareText size={16}/></button>
         <Link to="/" className="hidden min-h-10 items-center rounded-xl px-3 text-[10px] font-semibold text-text-soft hover:bg-surface-2 sm:inline-flex">Exit</Link>
       </div>

@@ -71,12 +71,23 @@ class AnalysisRequest(BaseModel):
     question: str = Field(min_length=3, max_length=1000)
 
 
+class DashboardGenerateRequest(BaseModel):
+    dataset_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+
+
 class AnalysisResponse(BaseModel):
     dataset_id: str
     answer: str
     plan: AnalysisPlan
     rows: list[dict[str, Any]]
     quality_issues: list[DataQualityIssue] = Field(default_factory=list)
+
+
+class GeneratedDashboard(BaseModel):
+    dataset_id: str
+    title: str
+    kpis: list[AnalysisResponse]
+    charts: list[AnalysisResponse]
 
 
 class OllamaStatus(BaseModel):
