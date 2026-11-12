@@ -1,8 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Database, LayoutDashboard, Menu, MessageSquareText, Plus, Sparkles, X } from 'lucide-react'
 import { BrandMark } from '../../../components/ui/BrandMark'
 import type { AnalysisResponse } from '../../analysis-chat/types'
+import { saveDashboard } from '../dashboard-types'
 
 type DatasetLink = { id: string; name: string }
 
@@ -28,6 +29,7 @@ function getSavedChats(): ChatSummary[] {
 }
 
 export function WorkspaceLayout({ apiOnline, ollamaOnline, datasets, selectedDatasetId, onAskQuestion, children }: WorkspaceLayoutProps) {
+  const navigate = useNavigate()
   const [leftOpen, setLeftOpen] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [mode, setMode] = useState<'ask' | 'edit'>('ask')
@@ -38,6 +40,13 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, datasets, selectedDat
   const [answer, setAnswer] = useState<AnalysisResponse | null>(chats[0]?.lastResult ?? null)
   const [askError, setAskError] = useState('')
   const [asking, setAsking] = useState(false)
+
+  function createDashboard() {
+    if (!answer) return
+    const dashboardId = crypto.randomUUID()
+    saveDashboard({ version: 1, id: dashboardId, title: answer.plan.title || 'Analysis dashboard', createdAt: new Date().toISOString(), source: answer, chartType: answer.plan.chart_type })
+    navigate(`/analytics/dashboards/${dashboardId}`)
+  }
 
   function createChat() {
     const chat = { id: crypto.randomUUID(), title: 'New chat' }
@@ -115,7 +124,7 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, datasets, selectedDat
       <span className="hidden text-[10px] font-medium text-muted sm:inline">Local analytics</span>
       <div className="ml-auto flex items-center gap-2">
       <span className="mr-1 hidden items-center gap-2 text-[10px] text-muted sm:inline-flex"><i className={`size-1.5 rounded-full ${apiOnline && ollamaOnline ? 'bg-lime' : 'bg-amber-400'}`}/>{!apiOnline ? 'API offline' : ollamaOnline ? 'Ollama ready' : 'Ollama offline'}</span>
-        <button type="button" disabled title="Dashboard builder is coming next" className="hidden min-h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[10px] font-bold text-muted disabled:cursor-not-allowed sm:inline-flex"><LayoutDashboard size={14}/> Dashboard</button>
+        <button type="button" onClick={createDashboard} disabled={!answer} title={answer ? 'Create a dashboard from the current analysis' : 'Ask a question first'} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[10px] font-bold text-text-soft hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"><LayoutDashboard size={14}/> Dashboard</button>
         <button type="button" aria-label="Open assistant" onClick={() => setAssistantOpen(true)} className="grid size-10 place-items-center rounded-xl border border-line-strong bg-surface-1 text-accent hover:bg-accent-soft xl:hidden"><MessageSquareText size={16}/></button>
         <Link to="/" className="hidden min-h-10 items-center rounded-xl px-3 text-[10px] font-semibold text-text-soft hover:bg-surface-2 sm:inline-flex">Exit</Link>
       </div>
