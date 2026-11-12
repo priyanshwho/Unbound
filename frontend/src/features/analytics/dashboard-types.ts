@@ -14,6 +14,33 @@ export type DashboardDraft = {
   createdAt: string
   source: AnalysisResponse
   chartType: DashboardChartType
+  publication?: { shareId: string; visibility: 'public' | 'unlisted' }
+}
+
+export type DashboardSnapshot = {
+  version: 1
+  dashboardId: string
+  title: string
+  kpis: Array<{ id: string; label: string; value: string | number }>
+  charts: Array<{ id: string; title: string; type: 'line' | 'bar' | 'horizontal_bar' | 'pie' | 'donut'; data: Array<{ label: string; value: string | number; series?: string }> }>
+  filters: []
+}
+
+export function buildDashboardSnapshot(draft: DashboardDraft): DashboardSnapshot {
+  const chartType = draft.chartType === 'table' ? 'bar' : draft.chartType
+  const data = draft.source.rows.slice(0, 500).map((row, index) => ({
+    label: String(row.category ?? `Row ${index + 1}`).slice(0, 240),
+    value: typeof row.value === 'number' || typeof row.value === 'string' ? row.value : 0,
+  }))
+  const headline = data[0]
+  return {
+    version: 1,
+    dashboardId: draft.id,
+    title: draft.title,
+    kpis: headline ? [{ id: 'leading-value', label: headline.label, value: headline.value }] : [],
+    charts: [{ id: 'primary-result', title: draft.source.plan.title, type: chartType, data }],
+    filters: [],
+  }
 }
 
 export const DASHBOARD_STORAGE_KEY = 'unbound-dashboard-drafts'

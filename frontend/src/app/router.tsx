@@ -4,7 +4,9 @@ import { AnalyticsRoute } from '../routes/analytics/AnalyticsRoute'
 import { ChatRoute } from '../routes/analytics/ChatRoute'
 import { LandingRoute } from '../routes/landing/LandingRoute'
 import { NotFoundRoute } from '../routes/NotFoundRoute'
-import { SharedDashboardRoute } from '../routes/share/SharedDashboardRoute'
+// Load chart dependencies only when a published snapshot is opened.
+// oxlint-disable-next-line react/only-export-components
+const SharedDashboardRoute = lazy(() => import('../routes/share/SharedDashboardRoute').then(module => ({ default: module.SharedDashboardRoute })))
 
 // The lazy route component is colocated with the router so chart code stays out of the landing bundle.
 // oxlint-disable-next-line react/only-export-components
@@ -17,6 +19,6 @@ export const router = createBrowserRouter([
   { path: '/analytics', element: <AnalyticsRoute/> },
   { path: '/analytics/chats/:chatId', element: <ChatRoute/> },
   { path: '/analytics/dashboards/:dashboardId', element: <Suspense fallback={<main className="grid min-h-screen place-items-center bg-background text-sm text-muted">Loading dashboard…</main>}><DashboardRoute/></Suspense> },
-  { path: '/share/:shareId', element: <SharedDashboardRoute/> },
+  { path: '/share/:shareId', element: <Suspense fallback={<main className="grid min-h-screen place-items-center bg-background text-sm text-muted">Loading snapshot…</main>}><SharedDashboardRoute/></Suspense> },
   { path: '*', element: <NotFoundRoute/> },
 ])
