@@ -14,7 +14,15 @@ export type DashboardDraft = {
   createdAt: string
   source: AnalysisResponse
   chartType: DashboardChartType
+  charts?: DashboardChartDraft[]
   publication?: { shareId: string; visibility: 'public' | 'unlisted' }
+}
+
+export type DashboardChartDraft = {
+  id: string
+  title: string
+  source: AnalysisResponse
+  chartType: DashboardChartType
 }
 
 export type DashboardSnapshot = {
@@ -27,18 +35,19 @@ export type DashboardSnapshot = {
 }
 
 export function buildDashboardSnapshot(draft: DashboardDraft): DashboardSnapshot {
-  const chartType = draft.chartType === 'table' ? 'bar' : draft.chartType
-  const data = draft.source.rows.slice(0, 500).map((row, index) => ({
+  const charts = draft.charts?.length ? draft.charts : [{ id: 'primary-result', title: draft.source.plan.title, source: draft.source, chartType: draft.chartType }]
+  const data = (source: AnalysisResponse) => source.rows.slice(0, 500).map((row, index) => ({
     label: String(row.category ?? `Row ${index + 1}`).slice(0, 240),
     value: typeof row.value === 'number' || typeof row.value === 'string' ? row.value : 0,
   }))
-  const headline = data[0]
+  const firstData = data(charts[0].source)
+  const headline = firstData[0]
   return {
     version: 1,
     dashboardId: draft.id,
     title: draft.title,
     kpis: headline ? [{ id: 'leading-value', label: headline.label, value: headline.value }] : [],
-    charts: [{ id: 'primary-result', title: draft.source.plan.title, type: chartType, data }],
+    charts: charts.map(chart => ({ id: chart.id, title: chart.title, type: chart.chartType === 'table' ? 'bar' : chart.chartType, data: data(chart.source) })),
     filters: [],
   }
 }
