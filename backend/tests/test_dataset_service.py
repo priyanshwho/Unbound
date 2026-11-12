@@ -6,6 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app.db import duckdb as duckdb_adapter
+from app.contracts import AnalysisPlan
+from app.services.analysis_service import complete_plan, run_analysis
 from app.services import dataset_service
 
 
@@ -64,6 +66,44 @@ class DatasetPersistenceTests(unittest.TestCase):
 
         self.assertFalse(path.exists())
         self.assertEqual(dataset_service.list_datasets(), [])
+
+    def test_validated_plan_calculates_values_in_duckdb(self) -> None:
+        dataset_id = "e" * 32
+        dataset_service.profile_csv(
+            self.write_csv(dataset_id, "product,sales\nMug,12\nBook,25\nMug,8\n"),
+            dataset_id,
+            "sales.csv",
+        )
+        plan = AnalysisPlan(aggregation="sum", measure="sales", group_by="product", title="Sales by product")
+
+        result = run_analysis(dataset_id, plan)
+
+        self.assertEqual(result, [{"category": "Book", "value": 25}, {"category": "Mug", "value": 20}])
+
+    def test_invalid_column_is_rejected_before_query(self) -> None:
+        dataset_id = "f" * 32
+        dataset_service.profile_csv(self.write_csv(dataset_id, "sales\n10\n"), dataset_id, "sales.csv")
+        plan = AnalysisPlan(aggregation="sum", measure="sales; DROP TABLE unbound_datasets", title="Unsafe")
+
+        with self.assertRaises(Exception) as raised:
+            run_analysis(dataset_id, plan)
+
+        self.assertIn("not in this dataset", str(raised.exception))
+
+    def test_plan_completion_uses_a_question_named_numeric_measure(self) -> None:
+        plan = AnalysisPlan(aggregation="sum", title="Sales by product")
+        columns = [{"name": "product", "type": "VARCHAR"}, {"name": "sales", "type": "DOUBLE"}]
+
+        completed = complete_plan(plan, "Which product had highest sales?", columns)
+
+        self.assertEqual(completed.measure, "sales")
+
+    def test_plan_completion_rejects_ambiguous_measure(self) -> None:
+        plan = AnalysisPlan(aggregation="sum", title="Highest value")
+        columns = [{"name": "sales", "type": "DOUBLE"}, {"name": "profit", "type": "DOUBLE"}]
+
+        with self.assertRaises(Exception):
+            complete_plan(plan, "Which is highest?", columns)
 
 
 if __name__ == "__main__":

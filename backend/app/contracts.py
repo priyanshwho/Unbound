@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class HealthResponse(BaseModel):
@@ -45,12 +45,35 @@ class JoinPreview(BaseModel):
 
 
 class AnalysisPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     measure: str | None = None
     group_by: str | None = None
-    aggregation: Literal["sum", "average", "count", "min", "max"] = "count"
-    granularity: Literal["month", "year", "day"] | None = None
-    chart_type: Literal["line", "bar"] = "bar"
-    title: str = "Analysis"
+    aggregation: Literal["sum", "average", "count", "min", "max"]
+    date_column: str | None = None
+    period: Literal["all_time", "last_month", "last_30_days", "this_month", "this_year"] = "all_time"
+    date_grain: Literal["day", "month", "year"] | None = None
+    chart_type: Literal["line", "bar", "horizontal_bar", "pie", "table"] = "bar"
+    title: str = Field(min_length=1, max_length=120)
+
+
+class AnalysisRequest(BaseModel):
+    dataset_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    question: str = Field(min_length=3, max_length=1000)
+
+
+class AnalysisResponse(BaseModel):
+    dataset_id: str
+    answer: str
+    plan: AnalysisPlan
+    rows: list[dict[str, Any]]
+
+
+class OllamaStatus(BaseModel):
+    available: bool
+    model: str
+    models: list[str] = Field(default_factory=list)
+    detail: str | None = None
 
 
 class ChartSpec(BaseModel):
