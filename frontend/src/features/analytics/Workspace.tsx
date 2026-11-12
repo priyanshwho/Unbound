@@ -48,6 +48,7 @@ export default function Workspace({ initialChatId }: { initialChatId?: string })
   const inputRef = useRef<HTMLInputElement>(null)
   const joinRequestId = useRef(0)
   const [entries, setEntries] = useState<UploadEntry[]>([])
+  const [questionDatasetId, setQuestionDatasetId] = useState('')
   const [dragging, setDragging] = useState(false)
   const [apiOnline, setApiOnline] = useState(false)
   const [ollamaOnline, setOllamaOnline] = useState(false)
@@ -64,6 +65,9 @@ export default function Workspace({ initialChatId }: { initialChatId?: string })
   const previouslyOnline = useRef(false)
 
   const datasets = useMemo(() => entries.flatMap(entry => entry.profile ? [entry.profile] : []), [entries])
+  const selectedDatasetId = datasets.some(dataset => dataset.id === questionDatasetId)
+    ? questionDatasetId
+    : datasets[0]?.id ?? ''
   const leftDataset = datasets.find(dataset => dataset.id === leftDatasetId)
   const rightDataset = datasets.find(dataset => dataset.id === rightDatasetId)
   const pending = entries.some(entry => entry.status === 'uploading')
@@ -279,7 +283,7 @@ export default function Workspace({ initialChatId }: { initialChatId?: string })
     return askDataset(datasetId, question)
   }
 
-  return <WorkspaceLayout initialChatId={initialChatId} apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} persistenceAvailable={apiOnline && persistenceAvailable} datasets={datasets} selectedDatasetId={datasets[0]?.id ?? ''} onAskQuestion={askQuestion}>
+  return <WorkspaceLayout initialChatId={initialChatId} apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} persistenceAvailable={apiOnline && persistenceAvailable} datasets={datasets} selectedDatasetId={selectedDatasetId} onSelectDataset={setQuestionDatasetId} onAskQuestion={askQuestion}>
       <main className="min-w-0 px-5 py-8 md:px-10 md:py-11">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-wrap items-end justify-between gap-4">

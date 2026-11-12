@@ -15,7 +15,15 @@ export async function askDataset(datasetId: string, question: string): Promise<A
   }
   if (!response.ok) {
     const detail = typeof result === 'object' && result !== null && 'detail' in result ? result.detail : null
-    throw new Error(typeof detail === 'string' ? detail : `The analysis request failed (${response.status}).`)
+    if (typeof detail === 'string') throw new Error(detail)
+    if (Array.isArray(detail)) {
+      const messages = detail.flatMap(item => {
+        if (typeof item !== 'object' || item === null || !('msg' in item) || typeof item.msg !== 'string') return []
+        return [item.msg]
+      })
+      if (messages.length) throw new Error(messages.join(' '))
+    }
+    throw new Error(`The analysis request failed (${response.status}).`)
   }
   return result as AnalysisResponse
 }

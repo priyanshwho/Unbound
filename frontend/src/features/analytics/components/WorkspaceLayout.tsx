@@ -14,6 +14,7 @@ type WorkspaceLayoutProps = {
   persistenceAvailable: boolean
   datasets: DatasetLink[]
   selectedDatasetId: string
+  onSelectDataset: (datasetId: string) => void
   onAskQuestion: (question: string, datasetId: string) => Promise<AnalysisResponse>
   children: ReactNode
 }
@@ -31,7 +32,7 @@ function getSavedChats(): ChatSummary[] {
   }
 }
 
-export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persistenceAvailable, datasets, selectedDatasetId, onAskQuestion, children }: WorkspaceLayoutProps) {
+export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persistenceAvailable, datasets, selectedDatasetId, onSelectDataset, onAskQuestion, children }: WorkspaceLayoutProps) {
   const navigate = useNavigate()
   const [leftOpen, setLeftOpen] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
@@ -102,7 +103,11 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const prompt = question.trim()
-    if (!prompt || !selectedDatasetId || asking) return
+    if (!selectedDatasetId || asking) return
+    if (prompt.length < 3) {
+      setAskError('Please enter a question with at least 3 characters.')
+      return
+    }
     setAskError('')
     setAsking(true)
     try {
@@ -190,6 +195,8 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
       <button type="button" role="tab" aria-selected={mode === 'edit'} onClick={() => setMode('edit')} className={`min-h-9 rounded-lg text-[10px] font-bold transition ${mode === 'edit' ? 'bg-accent-soft text-accent' : 'text-muted hover:text-text'}`}>Edit dashboard</button>
     </div>
     {mode === 'ask' ? <>
+      <label className="mt-4 grid gap-1.5 text-[9px] font-semibold text-text-soft">Ask about this CSV<select value={selectedDatasetId} onChange={event => { onSelectDataset(event.target.value); setAnswer(null); setLastQuestion(''); setAskError('') }} disabled={!datasets.length} className="form-field min-h-10"><option value="">Choose a CSV file</option>{datasets.map(dataset => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}</select></label>
+      <p className="mt-1 text-[9px] leading-4 text-muted">Each question uses one CSV. Choose the file that contains the fields you want to analyze.</p>
       <div className="mt-5 min-h-0 flex-1 space-y-3 overflow-y-auto">
         {!selectedDatasetId && <div className="rounded-xl border border-line bg-background-deep p-4"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-text-soft"><Sparkles size={14} className="text-accent"/>Waiting for a dataset</span><p className="mb-0 mt-2 text-[11px] leading-5 text-muted">Upload a CSV, then ask a question about its columns.</p></div>}
         {answer && <article className="rounded-xl border border-accent/25 bg-accent-soft/40 p-3.5"><p className="mb-1 font-mono text-[8px] tracking-wider text-accent">YOUR QUESTION</p><p className="mb-3 text-[10px] leading-5 text-text-soft">{lastQuestion}</p><p className="mb-1 font-mono text-[8px] tracking-wider text-accent">ANSWER</p><p className="mb-3 text-[11px] leading-5 text-text">{answer.answer}</p><div className="space-y-1.5">{answer.rows.slice(0, 6).map((row, index) => <div className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-1/70 px-2.5 py-2 text-[10px]" key={`${String(row.category ?? 'total')}-${index}`}><span className="truncate text-text-soft">{String(row.category ?? 'Total')}</span><b className="shrink-0 font-mono">{String(row.value ?? '—')}</b></div>)}</div><details className="mt-3 border-t border-line pt-2"><summary className="cursor-pointer text-[9px] font-semibold text-text-soft">Calculation details</summary><p className="mb-0 mt-2 text-[9px] leading-4 text-muted">{answer.plan.aggregation} of {answer.plan.measure ?? 'rows'}{answer.plan.group_by ? ` grouped by ${answer.plan.group_by}` : ''}, period: {answer.plan.period.replaceAll('_', ' ')}. DuckDB calculated the result from the selected CSV.</p></details></article>}
@@ -197,11 +204,11 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
       </div>
       <form onSubmit={submitQuestion} className="mt-4 rounded-xl border border-line-strong bg-surface-1 p-2.5">
         <label className="sr-only" htmlFor="data-question">Ask a question about this data</label>
-        <textarea id="data-question" value={question} onChange={event => setQuestion(event.target.value)} rows={3} maxLength={1000} placeholder={selectedDatasetId ? 'Ask a question about your data…' : 'Upload a CSV to ask a question'} disabled={!selectedDatasetId || !apiOnline || !ollamaOnline || asking} className="w-full resize-y bg-transparent px-1.5 py-1 text-[11px] leading-5 text-text outline-none placeholder:text-muted disabled:cursor-not-allowed"/>
-        <div className="flex items-center justify-between border-t border-line pt-2"><span className="text-[9px] text-muted">{ollamaOnline ? 'Ollama · DuckDB' : 'Connect Ollama to ask'}</span><button type="submit" disabled={!selectedDatasetId || !apiOnline || !ollamaOnline || !question.trim() || asking} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-accent px-3 text-[10px] font-bold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50">{asking ? 'Thinking…' : 'Ask'} <Sparkles size={13}/></button></div>
+        <textarea id="data-question" value={question} onChange={event => { setQuestion(event.target.value); setAskError('') }} rows={3} maxLength={1000} minLength={3} placeholder={selectedDatasetId ? 'Ask a question about your data…' : 'Upload a CSV to ask a question'} disabled={!selectedDatasetId || !apiOnline || !ollamaOnline || asking} className="w-full resize-y bg-transparent px-1.5 py-1 text-[11px] leading-5 text-text outline-none placeholder:text-muted disabled:cursor-not-allowed"/>
+        <div className="flex items-center justify-between border-t border-line pt-2"><span className="text-[9px] text-muted">{ollamaOnline ? 'Ollama · DuckDB' : 'Connect Ollama to ask'}</span><button type="submit" disabled={!selectedDatasetId || !apiOnline || !ollamaOnline || question.trim().length < 3 || asking} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-accent px-3 text-[10px] font-bold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50">{asking ? 'Thinking…' : 'Ask'} <Sparkles size={13}/></button></div>
       </form>
     </> : <div className="mt-5 min-h-0 flex-1 overflow-y-auto"><div className="rounded-xl border border-line bg-background-deep p-4"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-text-soft"><LayoutDashboard size={14} className="text-accent"/>Dashboard editing</span><p className="mb-0 mt-2 text-[11px] leading-5 text-muted">Open a saved dashboard to preview chart and metric edits with your local model.</p></div><div className="mt-4 space-y-1">{dashboards.length ? dashboards.map(dashboard => <Link key={dashboard.id} to={`/analytics/dashboards/${dashboard.id}`} onClick={() => setAssistantOpen(false)} className="block truncate rounded-lg px-3 py-2.5 text-[10px] text-text-soft hover:bg-surface-2">{dashboard.title}</Link>) : <p className="px-1 py-2 text-[10px] leading-5 text-muted">No saved dashboards yet.</p>}</div></div>}
-    <div className="mt-3 rounded-xl border border-line bg-surface-1 p-3"><p className="mb-0 text-[9px] font-mono tracking-wider text-muted">{mode === 'ask' ? 'TRY ASKING' : 'SUPPORTED EDITS'}</p><p className="mb-0 mt-2 text-[10px] leading-5 text-text-soft">{mode === 'ask' ? 'Which product had the highest sales last month?' : 'Replace a chart, change a metric, or add a filter.'}</p></div>
+    <div className="mt-3 rounded-xl border border-line bg-surface-1 p-3"><p className="mb-0 text-[9px] font-mono tracking-wider text-muted">{mode === 'ask' ? 'TRY ASKING' : 'SUPPORTED EDITS'}</p><p className="mb-0 mt-2 text-[10px] leading-5 text-text-soft">{mode === 'ask' ? selectedDatasetId && datasets.find(dataset => dataset.id === selectedDatasetId)?.name.toLowerCase().includes('sales') ? 'Which product had the highest sales last month?' : 'Which category has the highest value in this file?' : 'Replace a chart, change a metric, or add a filter.'}</p></div>
   </>
 
   return <div className="min-h-screen bg-background text-text">
