@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -16,8 +17,10 @@ from ....services.dataset_service import (
     preview_join,
     profile_csv,
 )
+from ....services.persistence_client import private_request, sync_dataset
 
 router = APIRouter(prefix="/datasets")
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=list[DatasetProfile])
@@ -40,7 +43,12 @@ async def upload_csv(file: UploadFile = File(...)) -> dict:
     path.write_bytes(content)
     safe_name = re.sub(r"[\\/\x00-\x1f]", "_", Path(file.filename).name)[:180]
     try:
-        return profile_csv(path, dataset_id, safe_name)
+        profile = profile_csv(path, dataset_id, safe_name)
+        try:
+            await sync_dataset(profile)
+        except Exception:
+            logger.warning("Dataset %s remains available locally; Neon metadata sync failed.", dataset_id)
+        return profile
     except DatasetLimitError as exc:
         path.unlink(missing_ok=True)
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -52,13 +60,17 @@ async def upload_csv(file: UploadFile = File(...)) -> dict:
 
 
 @router.delete("/{dataset_id}")
-def remove_dataset(dataset_id: str) -> dict[str, bool]:
+async def remove_dataset(dataset_id: str) -> dict[str, bool]:
     if not re.fullmatch(r"[0-9a-f]{32}", dataset_id):
         raise HTTPException(status_code=404, detail="Dataset not found")
     try:
         delete_dataset(dataset_id)
     except DatasetNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Dataset not found") from exc
+    try:
+        await private_request("DELETE", f"/v1/private/datasets/{dataset_id}")
+    except Exception:
+        logger.warning("Dataset %s was removed locally; Neon metadata cleanup failed.", dataset_id)
     return {"deleted": True}
 
 

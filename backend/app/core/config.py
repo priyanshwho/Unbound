@@ -17,5 +17,7 @@ MAX_ROWS = 1_000_000
 MAX_COLUMNS = 500
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
+PERSISTENCE_API_URL = os.environ.get("PERSISTENCE_API_URL", "http://127.0.0.1:8100").rstrip("/")
+PERSISTENCE_API_TOKEN = os.environ.get("UNBOUND_SERVICE_TOKEN", "")
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

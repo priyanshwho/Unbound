@@ -76,6 +76,33 @@ class OllamaStatus(BaseModel):
     detail: str | None = None
 
 
+class ConversationCreate(BaseModel):
+    id: str = Field(min_length=36, max_length=36)
+    title: str = Field(min_length=1, max_length=180)
+
+
+class ConversationMessageCreate(BaseModel):
+    id: str = Field(min_length=36, max_length=36)
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=20_000)
+    result: dict[str, Any] | None = None
+
+
+class DashboardSave(BaseModel):
+    id: str = Field(min_length=36, max_length=36)
+    title: str = Field(min_length=1, max_length=180)
+    spec: dict[str, Any]
+
+
+class PublicationCreate(BaseModel):
+    share_id: str = Field(min_length=36, max_length=36)
+    dashboard_id: str = Field(min_length=36, max_length=36)
+    revision: int = Field(ge=1)
+    visibility: Literal["public", "unlisted"]
+    snapshot: dict[str, Any]
+    expires_at: str | None = None
+
+
 class ChartSpec(BaseModel):
     title: str
     chart_type: Literal["line", "bar"]
