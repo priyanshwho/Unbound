@@ -1,0 +1,14 @@
+import { Icon, type IconName } from '../../components/ui/Icon'
+import { SectionHeading } from '../../components/ui/SectionHeading'
+import { SpotlightCard } from '../../components/ui/SpotlightCard'
+
+const items: { icon: IconName; number: string; title: string; text: string }[] = [
+  { icon: 'upload', number: '01', title: 'Bring your CSVs', text: 'Add one file or several. Review columns, missing values, and suggested relationships before analysis.' },
+  { icon: 'chat', number: '02', title: 'Ask in plain language', text: 'Ask about trends, best sellers, or unusual changes. Get the period and calculation with every answer.' },
+  { icon: 'chart', number: '03', title: 'Build and refine', text: 'Turn answers into editable charts and KPI cards. Change the chart, metric, or comparison in chat.' },
+  { icon: 'lock', number: '04', title: 'Keep control of your data', text: 'Analyze files with your local model. Review exactly what a shared dashboard includes before publishing.' },
+]
+
+export function FeaturesSection() {
+  return <section id="features" className="flex min-h-screen items-center border-y border-line bg-background-deep px-5 py-20 md:px-10 md:py-24 xl:px-[8vw]"><div className="mx-auto w-full max-w-6xl"><SectionHeading eyebrow="01 / FEATURES" title={<>The whole analysis,<br/><span className="text-muted">in one thoughtful workspace.</span></>} supportingText="From first upload to finished dashboard, each step stays connected to the same checked data." className="mb-10 md:mb-14"/><div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3.5">{items.map(item => <SpotlightCard key={item.number} className="flex min-h-[240px] flex-col justify-between p-3.5 sm:min-h-[260px] sm:p-5 md:min-h-[280px] md:p-6"><div className="flex items-start justify-between"><span className="grid size-10 place-items-center rounded-xl border border-accent/30 bg-accent-soft text-accent md:size-11"><Icon name={item.icon} size={19}/></span><span className="font-mono text-[9px] text-muted">{item.number}</span></div><div><h3 className="mb-2 font-display text-sm font-bold tracking-tight md:text-lg">{item.title}</h3><p className="text-[10px] leading-5 text-text-soft md:text-xs md:leading-6">{item.text}</p><span className="mt-4 block h-0.5 w-7 rounded-full bg-accent/70"/></div></SpotlightCard>)}</div><div className="mt-6 flex flex-col gap-3 text-[10px] text-text-soft sm:flex-row sm:flex-wrap sm:gap-x-7"><span className="inline-flex items-center gap-2"><Icon className="text-lime" name="check" size={14}/> Metrics come from the data engine</span><span className="inline-flex items-center gap-2"><Icon className="text-lime" name="check" size={14}/> The model explains, it does not invent</span><a className="inline-flex min-h-10 items-center gap-2 font-bold text-accent sm:ml-auto" href="#how-it-works">Explore the workflow <Icon name="arrow" size={14}/></a></div></div></section>
+}

@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #080d14;
+  --background-deep: #05090f;
+  --surface-1: #101925;
+  --surface-2: #141f2c;
+  --line: rgba(158, 183, 209, .15);
+  --line-strong: rgba(158, 183, 209, .24);
+  --text: #f3f7fc;
+  --text-soft: #b9c7d8;
+  --muted: #7f92a8;
+  --accent: #4c91ff;
+  --accent-strong: #70a8ff;
+  --accent-soft: rgba(76, 145, 255, .15);
+  --lime: #c8ee79;
+  --lime-soft: rgba(200, 238, 121, .12);
+  --shadow: rgba(0, 0, 0, .32);
+  --grid-line: rgba(112, 168, 255, .085);
+  --spotlight: rgba(76, 145, 255, .12);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #f4f8fd;
+  --background-deep: #eaf2fb;
+  --surface-1: #fff;
+  --surface-2: #f1f6fc;
+  --line: rgba(34, 65, 101, .12);
+  --line-strong: rgba(34, 65, 101, .2);
+  --text: #102238;
+  --text-soft: #43566e;
+  --muted: #6d8098;
+  --accent: #2875e8;
+  --accent-strong: #145fcf;
+  --accent-soft: rgba(40, 117, 232, .1);
+  --lime: #7d9f2f;
+  --lime-soft: rgba(125, 159, 47, .13);
+  --shadow: rgba(24, 58, 93, .1);
+  --grid-line: rgba(40, 117, 232, .08);
+  --spotlight: rgba(40, 117, 232, .1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-deep: var(--background-deep);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-text-soft: var(--text-soft);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-lime: var(--lime);
+  --color-lime-soft: var(--lime-soft);
+  --color-shadow: var(--shadow);
+  --font-sans: 'DM Sans', sans-serif;
+  --font-display: 'Manrope', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+  body { min-width: 320px; margin: 0; background: var(--background); color: var(--text); font-family: 'DM Sans', sans-serif; transition: color .2s ease, background-color .2s ease; }
+  button, input, textarea { font: inherit; }
+  a { color: inherit; text-decoration: none; }
+  ::selection { color: white; background: var(--accent); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+@layer components {
+  .auth-input { @apply block min-h-10 w-full rounded-lg border border-line-strong bg-surface-1 px-3 text-xs text-text outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50; }
+}

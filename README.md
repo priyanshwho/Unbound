@@ -1,24 +1,27 @@
 # Unbound
 
-Unbound is a local-first CSV analytics workspace. The landing page has product sections and an Analytics link. There is no sign-in or sign-up flow. The local workspace supports CSV upload, schema review, and multi-dataset join previews through FastAPI and DuckDB.
+Unbound is a local-first CSV analytics workspace. The landing page introduces the product, and the Analytics button opens the creator workspace without sign-in or sign-up.
 
 ## Project structure
 
-- `frontend/` — React 19, TypeScript, Vite, Tailwind CSS 4, and React Router.
-- `backend/` — FastAPI local API with DuckDB CSV profiling.
-- `PROJECT_CONTEXT.md` — project decisions and continuity notes.
+- `frontend/` contains the React, TypeScript, Vite, Tailwind CSS, and React Router application.
+- `frontend/src/routes/` maps URLs to page screens.
+- `frontend/src/sections/landing/` contains the scroll sections on `/`.
+- `frontend/src/features/` owns analytics feature behavior and data contracts.
+- `frontend/src/components/` contains shared UI and layout components.
+- `backend/` contains the local FastAPI API and DuckDB CSV operations.
 
-The app uses forest ink and warm ivory as its main colors, with a small clay accent. Manrope is used for headings, DM Sans for body text, and DM Mono for labels. Workspace motion uses transitions.dev duration and easing tokens, with reduced motion support.
+The landing page uses a dark blue palette with a coordinated light theme, lime as a contrasting accent, Manrope for headings, DM Sans for body copy, and DM Mono for labels.
 
 ## Run locally
 
 Use Node.js 22.12 or newer and Python 3.11 or newer.
 
-Start the API in one terminal:
+Start the local API in one terminal:
 
 ```bash
 cd backend
-python3.13 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
@@ -32,10 +35,10 @@ npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. The CSV upload posts to the local API, which stores files under `backend/data/datasets/` and returns row counts, column types, null counts, distinct counts, and sample values. OpenAPI docs are at `http://127.0.0.1:8000/api/v1/docs`.
+Open `http://127.0.0.1:5173`. The local API stores CSV uploads under `backend/data/datasets/`, which Git ignores. The workspace supports up to five CSVs, schema profiles, column-role review, join previews, and dataset deletion.
 
-## Current implementation boundary
+## Current boundaries
 
-- The app has no authentication routes or account forms. Analytics opens directly for the local creator.
-- The workspace can upload up to five CSVs, profile their schemas, assign temporary column roles, preview exact text joins, and remove files from local storage. Saved chats, persistent schema corrections, dashboard generation, and publishing are next in the project plan.
-- Keep the API bound to localhost. Uploaded CSVs stay on this Mac.
+- There is no authentication flow. The Analytics route opens directly.
+- Chats, AI analysis, editable dashboards, Neon persistence, and public snapshot publishing are future implementation steps.
+- Keep the local API bound to loopback. Raw CSV files stay on this computer.
