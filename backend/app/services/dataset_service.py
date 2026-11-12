@@ -37,6 +37,7 @@ def profile_csv(path: Path, dataset_id: str, original_name: str) -> dict[str, An
                 raise DatasetLimitError(f"CSV files can contain up to {MAX_COLUMNS} columns.")
 
             columns = []
+            quality_issues: list[dict[str, Any]] = []
             for name, data_type, *_ in description:
                 column = quote_identifier(str(name))
                 nulls, distinct = connection.execute(
@@ -54,16 +55,65 @@ def profile_csv(path: Path, dataset_id: str, original_name: str) -> dict[str, An
                         "samples": [str(row[0]) for row in samples],
                     }
                 )
+                if nulls:
+                    quality_issues.append({
+                        "kind": "missing_values",
+                        "severity": "high" if nulls / max(rows, 1) >= 0.2 else "medium",
+                        "column": str(name),
+                        "count": int(nulls),
+                        "message": f"{name} has {int(nulls):,} missing values ({nulls / max(rows, 1):.1%}).",
+                    })
+                if "id" in str(name).lower() and distinct < rows:
+                    repeated = int(connection.execute(
+                        f"SELECT COUNT(*) FROM (SELECT {column} FROM {table} WHERE {column} IS NOT NULL GROUP BY 1 HAVING COUNT(*) > 1)"
+                    ).fetchone()[0])
+                    if repeated:
+                        quality_issues.append({
+                            "kind": "duplicate_ids",
+                            "severity": "high",
+                            "column": str(name),
+                            "count": repeated,
+                            "message": f"Identifier column {name} has {repeated:,} repeated values.",
+                        })
+                if any(token in str(data_type).upper() for token in ("INT", "FLOAT", "DOUBLE", "DECIMAL", "REAL")):
+                    outliers = int(connection.execute(
+                        f"WITH bounds AS (SELECT quantile_cont({column}, 0.25) AS q1, quantile_cont({column}, 0.75) AS q3 FROM {table}) "
+                        f"SELECT COUNT(*) FROM {table}, bounds WHERE {column} IS NOT NULL AND "
+                        f"({column} < bounds.q1 - 3 * (bounds.q3 - bounds.q1) OR {column} > bounds.q3 + 3 * (bounds.q3 - bounds.q1))"
+                    ).fetchone()[0])
+                    if outliers:
+                        quality_issues.append({
+                            "kind": "outliers",
+                            "severity": "medium",
+                            "column": str(name),
+                            "count": outliers,
+                            "message": f"{name} contains {outliers:,} values beyond 3×IQR; check whether extreme values are valid.",
+                        })
+            names = [quote_identifier(str(row[0])) for row in description]
+            if names:
+                grouped_columns = ", ".join(names)
+                duplicate_rows = int(connection.execute(
+                    f"SELECT COALESCE(SUM(row_count - 1), 0) FROM (SELECT COUNT(*) AS row_count FROM {table} GROUP BY {grouped_columns} HAVING COUNT(*) > 1)"
+                ).fetchone()[0])
+                if duplicate_rows:
+                    quality_issues.append({
+                        "kind": "duplicate_rows",
+                        "severity": "high",
+                        "column": None,
+                        "count": duplicate_rows,
+                        "message": f"{duplicate_rows:,} rows are exact duplicates and may inflate totals.",
+                    })
             profile = {
                 "id": dataset_id,
                 "name": original_name,
                 "rows": rows,
                 "columns": columns,
                 "size": path.stat().st_size,
+                "quality_issues": quality_issues,
             }
             connection.execute(
-                "INSERT INTO unbound_datasets (id, name, rows, size, columns_json) VALUES (?, ?, ?, ?, ?)",
-                [dataset_id, original_name, rows, profile["size"], json.dumps(columns)],
+                "INSERT INTO unbound_datasets (id, name, rows, size, columns_json, quality_issues_json) VALUES (?, ?, ?, ?, ?, ?)",
+                [dataset_id, original_name, rows, profile["size"], json.dumps(columns), json.dumps(quality_issues)],
             )
             return profile
         except Exception:
@@ -78,10 +128,10 @@ def list_datasets() -> list[dict[str, Any]]:
         connection = connect_database()
         try:
             records = connection.execute(
-                "SELECT id, name, rows, size, columns_json FROM unbound_datasets ORDER BY rowid"
+                "SELECT id, name, rows, size, columns_json, quality_issues_json FROM unbound_datasets ORDER BY rowid"
             ).fetchall()
             return [
-                {"id": row[0], "name": row[1], "rows": row[2], "size": row[3], "columns": json.loads(row[4])}
+                {"id": row[0], "name": row[1], "rows": row[2], "size": row[3], "columns": json.loads(row[4]), "quality_issues": json.loads(row[5] or "[]")}
                 for row in records
             ]
         finally:

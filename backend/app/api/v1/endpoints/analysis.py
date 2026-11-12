@@ -23,9 +23,15 @@ async def ask_question(request: AnalysisRequest) -> dict:
     plan = await propose_plan(request.question, dataset["columns"])
     plan = complete_plan(plan, request.question, dataset["columns"])
     rows = run_analysis(request.dataset_id, plan)
+    relevant_issues = [
+        issue for issue in dataset.get("quality_issues", [])
+        if issue.get("kind") == "duplicate_rows"
+        or issue.get("column") in {plan.measure, plan.group_by, plan.date_column}
+    ]
     return {
         "dataset_id": request.dataset_id,
         "answer": format_answer(plan, rows),
         "plan": plan,
         "rows": rows,
+        "quality_issues": relevant_issues,
     }

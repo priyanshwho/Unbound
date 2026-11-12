@@ -14,4 +14,5 @@ export type AnalysisResponse = {
   answer: string
   plan: AnalysisPlan
   rows: Array<Record<string, string | number | null>>
+  quality_issues: Array<{ kind: string; severity: 'high' | 'medium' | 'low'; column: string | null; count: number; message: string }>
 }

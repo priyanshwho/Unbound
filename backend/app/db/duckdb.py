@@ -23,6 +23,9 @@ def connect_database() -> duckdb.DuckDBPyConnection:
         )
         """
     )
+    connection.execute(
+        "ALTER TABLE unbound_datasets ADD COLUMN IF NOT EXISTS quality_issues_json VARCHAR DEFAULT '[]'"
+    )
     return connection
 
 

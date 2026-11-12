@@ -18,12 +18,21 @@ class ColumnProfile(BaseModel):
     samples: list[str] = Field(default_factory=list, max_length=5)
 
 
+class DataQualityIssue(BaseModel):
+    kind: Literal["missing_values", "duplicate_ids", "duplicate_rows", "outliers"]
+    severity: Literal["high", "medium", "low"]
+    column: str | None = None
+    count: int = Field(ge=0)
+    message: str
+
+
 class DatasetProfile(BaseModel):
     id: str
     name: str
     rows: int = Field(ge=0)
     columns: list[ColumnProfile]
     size: int = Field(ge=0)
+    quality_issues: list[DataQualityIssue] = Field(default_factory=list)
 
 
 class JoinPreviewRequest(BaseModel):
@@ -67,6 +76,7 @@ class AnalysisResponse(BaseModel):
     answer: str
     plan: AnalysisPlan
     rows: list[dict[str, Any]]
+    quality_issues: list[DataQualityIssue] = Field(default_factory=list)
 
 
 class OllamaStatus(BaseModel):
