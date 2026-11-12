@@ -18,6 +18,7 @@ type WorkspaceLayoutProps = {
 }
 
 type ChatSummary = { id: string; title: string; lastQuestion?: string; lastResult?: AnalysisResponse }
+type DashboardLink = { id: string; title: string }
 const CHAT_STORAGE_KEY = 'unbound-recent-chats'
 
 function getSavedChats(): ChatSummary[] {
@@ -35,7 +36,7 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [mode, setMode] = useState<'ask' | 'edit'>('ask')
   const [chats, setChats] = useState<ChatSummary[]>(getSavedChats)
-  const [dashboards] = useState(listDashboards)
+  const [dashboards, setDashboards] = useState<DashboardLink[]>(() => listDashboards().map(({ id, title }) => ({ id, title })))
   const [activeChatId, setActiveChatId] = useState(chats[0]?.id ?? '')
   const [question, setQuestion] = useState(chats[0]?.lastQuestion ?? '')
   const [lastQuestion, setLastQuestion] = useState(chats[0]?.lastQuestion ?? '')
@@ -57,6 +58,22 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
         return next
       })
     }).catch(() => { /* Keep local chat history available when Neon is offline. */ })
+    return () => { active = false }
+  }, [persistenceAvailable])
+
+  useEffect(() => {
+    if (!persistenceAvailable) return
+    let active = true
+    void fetch('/api/v1/dashboards').then(response => response.ok ? response.json() : []).then((remote: unknown) => {
+      if (!active || !Array.isArray(remote)) return
+      setDashboards(current => {
+        const merged = new Map(current.map(dashboard => [dashboard.id, dashboard]))
+        for (const item of remote) {
+          if (typeof item?.id === 'string' && typeof item?.title === 'string') merged.set(item.id, { id: item.id, title: item.title })
+        }
+        return [...merged.values()]
+      })
+    }).catch(() => { /* Keep browser-saved dashboards available. */ })
     return () => { active = false }
   }, [persistenceAvailable])
 
@@ -172,7 +189,7 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
         <textarea id="data-question" value={question} onChange={event => setQuestion(event.target.value)} rows={3} maxLength={1000} placeholder={selectedDatasetId ? 'Ask a question about your data…' : 'Upload a CSV to ask a question'} disabled={!selectedDatasetId || !apiOnline || !ollamaOnline || asking} className="w-full resize-y bg-transparent px-1.5 py-1 text-[11px] leading-5 text-text outline-none placeholder:text-muted disabled:cursor-not-allowed"/>
         <div className="flex items-center justify-between border-t border-line pt-2"><span className="text-[9px] text-muted">{ollamaOnline ? 'Ollama · DuckDB' : 'Connect Ollama to ask'}</span><button type="submit" disabled={!selectedDatasetId || !apiOnline || !ollamaOnline || !question.trim() || asking} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-accent px-3 text-[10px] font-bold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50">{asking ? 'Thinking…' : 'Ask'} <Sparkles size={13}/></button></div>
       </form>
-    </> : <div className="mt-5 rounded-xl border border-line bg-background-deep p-4"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-text-soft"><LayoutDashboard size={14} className="text-accent"/>Dashboard editing</span><p className="mb-0 mt-3 text-[11px] leading-5 text-muted">Create a dashboard first. Then ask to replace a chart, change a metric, or add a filter.</p></div>}
+    </> : <div className="mt-5 min-h-0 flex-1 overflow-y-auto"><div className="rounded-xl border border-line bg-background-deep p-4"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-text-soft"><LayoutDashboard size={14} className="text-accent"/>Dashboard editing</span><p className="mb-0 mt-2 text-[11px] leading-5 text-muted">Open a saved dashboard to preview chart and metric edits with your local model.</p></div><div className="mt-4 space-y-1">{dashboards.length ? dashboards.map(dashboard => <Link key={dashboard.id} to={`/analytics/dashboards/${dashboard.id}`} onClick={() => setAssistantOpen(false)} className="block truncate rounded-lg px-3 py-2.5 text-[10px] text-text-soft hover:bg-surface-2">{dashboard.title}</Link>) : <p className="px-1 py-2 text-[10px] leading-5 text-muted">No saved dashboards yet.</p>}</div></div>}
     <div className="mt-3 rounded-xl border border-line bg-surface-1 p-3"><p className="mb-0 text-[9px] font-mono tracking-wider text-muted">{mode === 'ask' ? 'TRY ASKING' : 'SUPPORTED EDITS'}</p><p className="mb-0 mt-2 text-[10px] leading-5 text-text-soft">{mode === 'ask' ? 'Which product had the highest sales last month?' : 'Replace a chart, change a metric, or add a filter.'}</p></div>
   </>
 
