@@ -44,7 +44,7 @@ function requestError(reason: unknown, fallback: string) {
   return reason instanceof Error ? reason.message : fallback
 }
 
-export default function Workspace() {
+export default function Workspace({ initialChatId }: { initialChatId?: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const joinRequestId = useRef(0)
   const [entries, setEntries] = useState<UploadEntry[]>([])
@@ -269,7 +269,7 @@ export default function Workspace() {
     return askDataset(datasetId, question)
   }
 
-  return <WorkspaceLayout apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} persistenceAvailable={apiOnline && persistenceAvailable} datasets={datasets} selectedDatasetId={datasets[0]?.id ?? ''} onAskQuestion={askQuestion}>
+  return <WorkspaceLayout initialChatId={initialChatId} apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} persistenceAvailable={apiOnline && persistenceAvailable} datasets={datasets} selectedDatasetId={datasets[0]?.id ?? ''} onAskQuestion={askQuestion}>
       <main className="min-w-0 px-5 py-8 md:px-10 md:py-11">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-wrap items-end justify-between gap-4">

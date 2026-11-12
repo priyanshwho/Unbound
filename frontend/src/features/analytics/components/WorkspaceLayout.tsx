@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Database, LayoutDashboard, Menu, MessageSquareText, Plus, Sparkles, X } from 'lucide-react'
 import { BrandMark } from '../../../components/ui/BrandMark'
@@ -8,6 +8,7 @@ import { listDashboards, saveDashboard } from '../dashboard-types'
 type DatasetLink = { id: string; name: string }
 
 type WorkspaceLayoutProps = {
+  initialChatId?: string
   apiOnline: boolean
   ollamaOnline: boolean
   persistenceAvailable: boolean
@@ -30,7 +31,7 @@ function getSavedChats(): ChatSummary[] {
   }
 }
 
-export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable, datasets, selectedDatasetId, onAskQuestion, children }: WorkspaceLayoutProps) {
+export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persistenceAvailable, datasets, selectedDatasetId, onAskQuestion, children }: WorkspaceLayoutProps) {
   const navigate = useNavigate()
   const [leftOpen, setLeftOpen] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
@@ -93,6 +94,7 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
     setLastQuestion('')
     setAnswer(null)
     setAskError('')
+    navigate('/analytics')
     try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(next)) } catch { /* Keep this chat in memory when storage is unavailable. */ }
     setLeftOpen(false)
   }
@@ -139,12 +141,13 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
     }
   }
 
-  async function openChat(chat: ChatSummary) {
+  const openChat = useCallback(async (chat: ChatSummary) => {
     setActiveChatId(chat.id)
     setQuestion('')
     setLastQuestion(chat.lastQuestion ?? '')
     setAnswer(chat.lastResult ?? null)
     setLeftOpen(false)
+    navigate(`/analytics/chats/${chat.id}`)
     if (!persistenceAvailable || chat.lastResult) return
     try {
       const response = await fetch(`/api/v1/conversations/${chat.id}`)
@@ -160,7 +163,15 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
     } catch {
       // Recent chat titles remain usable if Neon disconnects.
     }
-  }
+  }, [navigate, persistenceAvailable])
+
+  // Route parameters select the corresponding saved conversation when opening a deep link.
+  useEffect(() => {
+    if (!initialChatId || activeChatId === initialChatId) return
+    const chat = chats.find(item => item.id === initialChatId)
+    // oxlint-disable-next-line react/set-state-in-effect
+    if (chat) void openChat(chat)
+  }, [initialChatId, activeChatId, chats, openChat])
 
   const sidebar = <>
     <button type="button" onClick={createChat} className="flex min-h-11 w-full items-center gap-2 rounded-xl bg-accent px-3 text-left text-xs font-bold text-white shadow-lg shadow-accent/15 transition hover:bg-accent-strong"><Plus size={16}/> New chat</button>

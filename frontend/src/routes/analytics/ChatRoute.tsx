@@ -3,5 +3,5 @@ import { AnalyticsRoute } from './AnalyticsRoute'
 
 export function ChatRoute() {
   const { chatId } = useParams()
-  return <div data-chat-id={chatId}><AnalyticsRoute/></div>
+  return <AnalyticsRoute initialChatId={chatId}/>
 }
