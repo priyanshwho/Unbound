@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Database, LayoutDashboard, Menu, MessageSquareText, Plus, Sparkles, X } from 'lucide-react'
 import { BrandMark } from '../../../components/ui/BrandMark'
@@ -10,6 +10,7 @@ type DatasetLink = { id: string; name: string }
 type WorkspaceLayoutProps = {
   apiOnline: boolean
   ollamaOnline: boolean
+  persistenceAvailable: boolean
   datasets: DatasetLink[]
   selectedDatasetId: string
   onAskQuestion: (question: string, datasetId: string) => Promise<AnalysisResponse>
@@ -28,7 +29,7 @@ function getSavedChats(): ChatSummary[] {
   }
 }
 
-export function WorkspaceLayout({ apiOnline, ollamaOnline, datasets, selectedDatasetId, onAskQuestion, children }: WorkspaceLayoutProps) {
+export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable, datasets, selectedDatasetId, onAskQuestion, children }: WorkspaceLayoutProps) {
   const navigate = useNavigate()
   const [leftOpen, setLeftOpen] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
@@ -40,6 +41,23 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, datasets, selectedDat
   const [answer, setAnswer] = useState<AnalysisResponse | null>(chats[0]?.lastResult ?? null)
   const [askError, setAskError] = useState('')
   const [asking, setAsking] = useState(false)
+
+  useEffect(() => {
+    if (!persistenceAvailable) return
+    let active = true
+    void fetch('/api/v1/conversations').then(response => response.ok ? response.json() : []).then((remote: unknown) => {
+      if (!active) return
+      if (!Array.isArray(remote)) return
+      setChats(current => {
+        const known = new Set(current.map(chat => chat.id))
+        const restored = remote.filter((item): item is { id: string; title: string } => typeof item?.id === 'string' && typeof item?.title === 'string' && !known.has(item.id)).map(item => ({ id: item.id, title: item.title }))
+        const next = [...restored, ...current]
+        try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(next)) } catch { /* In-memory history still works. */ }
+        return next
+      })
+    }).catch(() => { /* Keep local chat history available when Neon is offline. */ })
+    return () => { active = false }
+  }, [persistenceAvailable])
 
   function createDashboard() {
     if (!answer) return
@@ -80,6 +98,22 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, datasets, selectedDat
       setLastQuestion(prompt)
       setQuestion('')
       try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(next)) } catch { /* Keep this result in memory when storage is unavailable. */ }
+      if (persistenceAvailable) {
+        void (async () => {
+          try {
+            if (!previous) {
+              const created = await fetch('/api/v1/conversations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, title: nextChat.title }) })
+              if (!created.ok) return
+            }
+            for (const message of [
+              { id: crypto.randomUUID(), role: 'user', content: prompt },
+              { id: crypto.randomUUID(), role: 'assistant', content: result.answer, result },
+            ]) {
+              await fetch(`/api/v1/conversations/${id}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(message) })
+            }
+          } catch { /* Keep the local copy when private persistence is unavailable. */ }
+        })()
+      }
     } catch (reason) {
       setAskError(reason instanceof Error ? reason.message : 'The question could not be answered.')
     } finally {
@@ -87,10 +121,33 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, datasets, selectedDat
     }
   }
 
+  async function openChat(chat: ChatSummary) {
+    setActiveChatId(chat.id)
+    setQuestion('')
+    setLastQuestion(chat.lastQuestion ?? '')
+    setAnswer(chat.lastResult ?? null)
+    setLeftOpen(false)
+    if (!persistenceAvailable || chat.lastResult) return
+    try {
+      const response = await fetch(`/api/v1/conversations/${chat.id}`)
+      if (!response.ok) return
+      const detail: unknown = await response.json()
+      if (typeof detail !== 'object' || detail === null || !('messages' in detail) || !Array.isArray(detail.messages)) return
+      const history = detail.messages as Array<{ role?: string; content?: string; result?: unknown }>
+      const userMessage = [...history].reverse().find(message => message.role === 'user')
+      const assistantMessage = [...history].reverse().find(message => message.role === 'assistant')
+      const restored = assistantMessage?.result as AnalysisResponse | undefined
+      if (restored && typeof restored.answer === 'string') setAnswer(restored)
+      if (typeof userMessage?.content === 'string') setLastQuestion(userMessage.content)
+    } catch {
+      // Recent chat titles remain usable if Neon disconnects.
+    }
+  }
+
   const sidebar = <>
     <button type="button" onClick={createChat} className="flex min-h-11 w-full items-center gap-2 rounded-xl bg-accent px-3 text-left text-xs font-bold text-white shadow-lg shadow-accent/15 transition hover:bg-accent-strong"><Plus size={16}/> New chat</button>
     <div className="mt-7 flex items-center justify-between font-mono text-[9px] tracking-wider text-muted"><span>RECENT CHATS</span><span>{chats.length}</span></div>
-    <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">{chats.length ? chats.map(chat => <button type="button" key={chat.id} onClick={() => { setActiveChatId(chat.id); setQuestion(''); setLastQuestion(chat.lastQuestion ?? ''); setAnswer(chat.lastResult ?? null); setLeftOpen(false) }} className={`w-full truncate rounded-lg px-3 py-2.5 text-left text-[11px] transition ${chat.id === activeChatId ? 'bg-accent-soft text-accent' : 'text-text-soft hover:bg-surface-2'}`}>{chat.title}</button>) : <p className="px-1 py-2 text-[11px] leading-5 text-muted">Your conversations will appear here.</p>}</div>
+    <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">{chats.length ? chats.map(chat => <button type="button" key={chat.id} onClick={() => void openChat(chat)} className={`w-full truncate rounded-lg px-3 py-2.5 text-left text-[11px] transition ${chat.id === activeChatId ? 'bg-accent-soft text-accent' : 'text-text-soft hover:bg-surface-2'}`}>{chat.title}</button>) : <p className="px-1 py-2 text-[11px] leading-5 text-muted">Your conversations will appear here.</p>}</div>
     <div className="mt-7 flex items-center justify-between font-mono text-[9px] tracking-wider text-muted"><span>DATASETS</span><span>{datasets.length}</span></div>
     <div className="mt-2 space-y-1">{datasets.map(dataset => <a key={dataset.id} href={`#dataset-${dataset.id}`} onClick={() => setLeftOpen(false)} className="flex min-h-9 items-center gap-2 truncate rounded-lg px-3 text-[10px] text-text-soft hover:bg-surface-2"><Database size={13} className="shrink-0 text-accent"/><span className="truncate">{dataset.name}</span></a>)}</div>
     <div className="mt-auto rounded-xl border border-line bg-surface-1 p-3"><span className="inline-flex items-center gap-2 text-[10px] text-text-soft"><i className={`size-1.5 rounded-full ${apiOnline ? 'bg-lime' : 'bg-amber-400'}`}/>{apiOnline ? 'Local service connected' : 'Local service offline'}</span><p className="mb-0 mt-2 text-[10px] leading-5 text-muted">CSV files stay on this device. Remove a dataset to delete its local copy.</p></div>

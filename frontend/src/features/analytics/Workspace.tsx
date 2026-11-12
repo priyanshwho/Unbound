@@ -51,6 +51,7 @@ export default function Workspace() {
   const [dragging, setDragging] = useState(false)
   const [apiOnline, setApiOnline] = useState(false)
   const [ollamaOnline, setOllamaOnline] = useState(false)
+  const [persistenceAvailable, setPersistenceAvailable] = useState(false)
   const [roleMap, setRoleMap] = useState<Record<string, ColumnRole>>({})
   const [leftDatasetId, setLeftDatasetId] = useState('')
   const [rightDatasetId, setRightDatasetId] = useState('')
@@ -105,6 +106,23 @@ export default function Workspace() {
     }
     void restoreDatasets()
     return () => { active = false }
+  }, [apiOnline])
+
+  useEffect(() => {
+    if (!apiOnline) return
+    let active = true
+    async function checkPersistence() {
+      try {
+        const response = await fetch('/api/v1/persistence/status')
+        const status = await readApiResponse(response)
+        if (active && typeof status === 'object' && status !== null && 'available' in status) setPersistenceAvailable(status.available === true)
+      } catch {
+        if (active) setPersistenceAvailable(false)
+      }
+    }
+    void checkPersistence()
+    const interval = window.setInterval(() => void checkPersistence(), 15000)
+    return () => { active = false; window.clearInterval(interval) }
   }, [apiOnline])
 
   useEffect(() => {
@@ -251,7 +269,7 @@ export default function Workspace() {
     return askDataset(datasetId, question)
   }
 
-  return <WorkspaceLayout apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} datasets={datasets} selectedDatasetId={datasets[0]?.id ?? ''} onAskQuestion={askQuestion}>
+  return <WorkspaceLayout apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} persistenceAvailable={apiOnline && persistenceAvailable} datasets={datasets} selectedDatasetId={datasets[0]?.id ?? ''} onAskQuestion={askQuestion}>
       <main className="min-w-0 px-5 py-8 md:px-10 md:py-11">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-wrap items-end justify-between gap-4">
