@@ -7,7 +7,7 @@ type ColumnProfile = { name: string; type: string; nulls: number; distinct: numb
 type DatasetProfile = { id: string; name: string; rows: number; columns: ColumnProfile[]; size: number }
 type ColumnRole = 'Auto' | 'Date' | 'Measure' | 'Category' | 'Identifier' | 'Ignore'
 type JoinResult = { left_rows: number; right_rows: number; matched_left_rows: number; unmatched_left_rows: number; matched_keys: number; joined_rows: number; duplicate_left_keys: number; duplicate_right_keys: number }
-type UploadEntry = { file?: File; name: string; size: number; status: 'queued' | 'uploading' | 'ready' | 'error'; profile?: DatasetProfile; message?: string }
+type UploadEntry = { file?: File; name: string; size: number; status: 'queued' | 'uploading' | 'ready' | 'error'; profile?: DatasetProfile; message?: string; controller?: AbortController }
 
 const MAX_FILES = 5
 const MAX_BYTES = 50 * 1024 * 1024
@@ -164,17 +164,22 @@ export default function Workspace({ initialChatId }: { initialChatId?: string })
         setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'error', message: validation } : item))
         continue
       }
-      setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'uploading', message: undefined } : item))
+      const controller = new AbortController()
+      setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'uploading', message: undefined, controller } : item))
       try {
         const form = new FormData()
         form.append('file', file)
-        const response = await fetch('/api/v1/datasets/upload', { method: 'POST', body: form })
+        const response = await fetch('/api/v1/datasets/upload', { method: 'POST', body: form, signal: controller.signal })
         const result = await readApiResponse(response)
         const profile = result as DatasetProfile
         setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'ready', profile } : item))
         setLeftDatasetId(current => current || profile.id)
         setNotice(`${profile.name} is ready for schema review.`)
       } catch (reason) {
+        if (reason instanceof DOMException && reason.name === 'AbortError') {
+          setEntries(current => current.filter(item => item.file !== entry.file))
+          continue
+        }
         setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'error', message: requestError(reason, 'Upload failed.') } : item))
       }
     }
@@ -191,6 +196,11 @@ export default function Workspace({ initialChatId }: { initialChatId?: string })
   function onInputChange(event: ChangeEvent<HTMLInputElement>) {
     if (event.target.files) addFiles(event.target.files)
     event.target.value = ''
+  }
+
+  function cancelUpload(entry: UploadEntry) {
+    entry.controller?.abort()
+    setEntries(current => current.filter(item => item !== entry))
   }
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
@@ -297,6 +307,7 @@ export default function Workspace({ initialChatId }: { initialChatId?: string })
                 <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">{entry.name}</p><p className="mt-0.5 text-[10px] text-muted">{formatSize(entry.size)}{entry.profile ? ` · ${entry.profile.rows.toLocaleString()} rows · ${entry.profile.columns.length} columns` : ''}{entry.status === 'uploading' ? ' · Profiling file…' : ''}</p>{entry.message && <p role="alert" className="mt-1 text-[10px] text-amber-400">{entry.message}</p>}</div>
                 {entry.status === 'ready' && <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[9px] font-semibold text-accent">Ready</span>}
                 {entry.status === 'queued' && <span className="text-[9px] text-muted">Queued</span>}
+                {entry.status === 'uploading' && <button type="button" onClick={() => cancelUpload(entry)} className="motion-state rounded-md px-2 py-1 text-[10px] font-semibold text-muted hover:bg-amber-400/10 hover:text-amber-400">Cancel</button>}
                 {entry.status === 'error' && entry.file && <button type="button" onClick={() => { setEntries(current => current.map(item => item === entry ? { ...item, status: 'queued', message: undefined } : item)); void processFiles([{ file: entry.file, name: entry.name, size: entry.size, status: 'queued' }]) }} className="motion-state text-[10px] font-semibold text-accent">Retry</button>}
                 {(entry.profile || entry.status === 'error') && <button type="button" onClick={() => entry.profile ? void removeDataset(entry.profile.id) : setEntries(current => current.filter(item => item !== entry))} aria-label={`Remove ${entry.name}`} className="motion-state grid size-8 place-items-center rounded-md text-muted hover:bg-amber-400/10 hover:text-amber-400"><Trash2 size={15}/></button>}
               </article>)}
