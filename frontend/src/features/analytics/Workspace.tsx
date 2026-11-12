@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { WorkspaceLayout } from './components/WorkspaceLayout'
 import { AlertTriangle, ArrowDown, ArrowLeftRight, Check, Database, FileSpreadsheet, LoaderCircle, Plus, Trash2, Upload, X } from 'lucide-react'
+import { askDataset } from '../analysis-chat/api'
 
 type ColumnProfile = { name: string; type: string; nulls: number; distinct: number; samples: string[] }
 type DatasetProfile = { id: string; name: string; rows: number; columns: ColumnProfile[]; size: number }
 type ColumnRole = 'Auto' | 'Date' | 'Measure' | 'Category' | 'Identifier' | 'Ignore'
 type JoinResult = { left_rows: number; right_rows: number; matched_left_rows: number; unmatched_left_rows: number; matched_keys: number; joined_rows: number; duplicate_left_keys: number; duplicate_right_keys: number }
-type UploadEntry = { file: File; status: 'queued' | 'uploading' | 'ready' | 'error'; profile?: DatasetProfile; message?: string }
+type UploadEntry = { file?: File; name: string; size: number; status: 'queued' | 'uploading' | 'ready' | 'error'; profile?: DatasetProfile; message?: string }
 
 const MAX_FILES = 5
 const MAX_BYTES = 50 * 1024 * 1024
@@ -49,6 +50,7 @@ export default function Workspace() {
   const [entries, setEntries] = useState<UploadEntry[]>([])
   const [dragging, setDragging] = useState(false)
   const [apiOnline, setApiOnline] = useState(false)
+  const [ollamaOnline, setOllamaOnline] = useState(false)
   const [roleMap, setRoleMap] = useState<Record<string, ColumnRole>>({})
   const [leftDatasetId, setLeftDatasetId] = useState('')
   const [rightDatasetId, setRightDatasetId] = useState('')
@@ -81,6 +83,46 @@ export default function Workspace() {
     return () => { active = false; window.clearInterval(interval) }
   }, [])
 
+  useEffect(() => {
+    if (!apiOnline) return
+    let active = true
+    async function restoreDatasets() {
+      try {
+        const response = await fetch('/api/v1/datasets')
+        const stored = await readApiResponse(response)
+        if (!Array.isArray(stored)) return
+        const profiles = stored as DatasetProfile[]
+        if (!active || profiles.length === 0) return
+        setEntries(current => {
+          const existingIds = new Set(current.flatMap(entry => entry.profile ? [entry.profile.id] : []))
+          const recovered = profiles.filter(profile => !existingIds.has(profile.id)).map(profile => ({ name: profile.name, size: profile.size, status: 'ready' as const, profile }))
+          return [...current, ...recovered]
+        })
+        setLeftDatasetId(current => current || profiles[0].id)
+      } catch {
+        // Keep the workspace usable while the local companion starts.
+      }
+    }
+    void restoreDatasets()
+    return () => { active = false }
+  }, [apiOnline])
+
+  useEffect(() => {
+    if (!apiOnline) return
+    let active = true
+    async function checkOllama() {
+      try {
+        const response = await fetch('/api/v1/ollama/status')
+        const status = await readApiResponse(response)
+        if (active && typeof status === 'object' && status !== null && 'available' in status) setOllamaOnline(status.available === true)
+      } catch {
+        if (active) setOllamaOnline(false)
+      }
+    }
+    void checkOllama()
+    return () => { active = false }
+  }, [apiOnline])
+
   function addFiles(fileList: FileList | File[]) {
     const incoming = Array.from(fileList)
     const available = Math.max(0, MAX_FILES - entries.length)
@@ -88,15 +130,17 @@ export default function Workspace() {
     const rejected = incoming.length - selected.length
     if (rejected) setNotice(`You can add ${MAX_FILES} files to one workspace. ${rejected} ${rejected === 1 ? 'file was' : 'files were'} skipped.`)
     if (!selected.length) return
-    const next = selected.map(file => ({ file, status: 'queued' as const }))
+    const next = selected.map(file => ({ file, name: file.name, size: file.size, status: 'queued' as const }))
     setEntries(current => [...current, ...next])
     void processFiles(next)
   }
 
   async function processFiles(queue: UploadEntry[]) {
     for (const entry of queue) {
-      const validation = entry.file.name.toLowerCase().endsWith('.csv')
-        ? entry.file.size > MAX_BYTES ? 'CSV files must be 50 MB or smaller.' : entry.file.size === 0 ? 'This file is empty.' : ''
+      const file = entry.file
+      if (!file) continue
+      const validation = file.name.toLowerCase().endsWith('.csv')
+        ? file.size > MAX_BYTES ? 'CSV files must be 50 MB or smaller.' : file.size === 0 ? 'This file is empty.' : ''
         : 'Choose a CSV file.'
       if (validation) {
         setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'error', message: validation } : item))
@@ -105,7 +149,7 @@ export default function Workspace() {
       setEntries(current => current.map(item => item.file === entry.file ? { ...item, status: 'uploading', message: undefined } : item))
       try {
         const form = new FormData()
-        form.append('file', entry.file)
+        form.append('file', file)
         const response = await fetch('/api/v1/datasets/upload', { method: 'POST', body: form })
         const result = await readApiResponse(response)
         const profile = result as DatasetProfile
@@ -203,7 +247,11 @@ export default function Workspace() {
   const matchRate = join && join.left_rows ? (join.matched_left_rows / join.left_rows) * 100 : 0
   const hasMultiplication = Boolean(join && join.joined_rows > join.matched_left_rows)
 
-  return <WorkspaceLayout apiOnline={apiOnline} datasets={datasets}>
+  async function askQuestion(question: string, datasetId: string) {
+    return askDataset(datasetId, question)
+  }
+
+  return <WorkspaceLayout apiOnline={apiOnline} ollamaOnline={apiOnline && ollamaOnline} datasets={datasets} selectedDatasetId={datasets[0]?.id ?? ''} onAskQuestion={askQuestion}>
       <main className="min-w-0 px-5 py-8 md:px-10 md:py-11">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -226,13 +274,13 @@ export default function Workspace() {
             {notice && <div role="status" className="mt-3 flex items-start justify-between gap-4 rounded-md border border-line bg-accent-soft px-4 py-3 text-[11px] leading-5 text-accent"><span className="flex items-start gap-2"><Check size={14} className="mt-0.5 shrink-0"/>{notice}</span><button aria-label="Dismiss notice" onClick={() => setNotice('')} className="shrink-0 rounded p-0.5 hover:bg-surface-1"><X size={14}/></button></div>}
 
             {entries.length > 0 && <div className="mt-5 space-y-2" aria-live="polite">
-              {entries.map((entry, index) => <article key={`${entry.file.name}-${entry.file.lastModified}-${index}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface-1 p-3.5">
+              {entries.map((entry, index) => <article key={`${entry.profile?.id ?? entry.name}-${index}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface-1 p-3.5">
                 <span className={`grid size-9 shrink-0 place-items-center rounded-md ${entry.status === 'error' ? 'bg-amber-400/10 text-clay' : 'bg-accent-soft text-accent'}`}>{entry.status === 'uploading' ? <LoaderCircle size={17} className="animate-spin"/> : entry.status === 'error' ? <AlertTriangle size={16}/> : <FileSpreadsheet size={17}/>}</span>
-                <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">{entry.file.name}</p><p className="mt-0.5 text-[10px] text-muted">{formatSize(entry.file.size)}{entry.profile ? ` · ${entry.profile.rows.toLocaleString()} rows · ${entry.profile.columns.length} columns` : ''}{entry.status === 'uploading' ? ' · Profiling file…' : ''}</p>{entry.message && <p role="alert" className="mt-1 text-[10px] text-amber-400">{entry.message}</p>}</div>
+                <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">{entry.name}</p><p className="mt-0.5 text-[10px] text-muted">{formatSize(entry.size)}{entry.profile ? ` · ${entry.profile.rows.toLocaleString()} rows · ${entry.profile.columns.length} columns` : ''}{entry.status === 'uploading' ? ' · Profiling file…' : ''}</p>{entry.message && <p role="alert" className="mt-1 text-[10px] text-amber-400">{entry.message}</p>}</div>
                 {entry.status === 'ready' && <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[9px] font-semibold text-accent">Ready</span>}
                 {entry.status === 'queued' && <span className="text-[9px] text-muted">Queued</span>}
-                {entry.status === 'error' && <button type="button" onClick={() => { setEntries(current => current.map(item => item === entry ? { ...item, status: 'queued', message: undefined } : item)); void processFiles([{ file: entry.file, status: 'queued' }]) }} className="motion-state text-[10px] font-semibold text-accent">Retry</button>}
-                {(entry.profile || entry.status === 'error') && <button type="button" onClick={() => entry.profile ? void removeDataset(entry.profile.id) : setEntries(current => current.filter(item => item !== entry))} aria-label={`Remove ${entry.file.name}`} className="motion-state grid size-8 place-items-center rounded-md text-muted hover:bg-amber-400/10 hover:text-amber-400"><Trash2 size={15}/></button>}
+                {entry.status === 'error' && entry.file && <button type="button" onClick={() => { setEntries(current => current.map(item => item === entry ? { ...item, status: 'queued', message: undefined } : item)); void processFiles([{ file: entry.file, name: entry.name, size: entry.size, status: 'queued' }]) }} className="motion-state text-[10px] font-semibold text-accent">Retry</button>}
+                {(entry.profile || entry.status === 'error') && <button type="button" onClick={() => entry.profile ? void removeDataset(entry.profile.id) : setEntries(current => current.filter(item => item !== entry))} aria-label={`Remove ${entry.name}`} className="motion-state grid size-8 place-items-center rounded-md text-muted hover:bg-amber-400/10 hover:text-amber-400"><Trash2 size={15}/></button>}
               </article>)}
             </div>}
           </section>

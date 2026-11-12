@@ -16,7 +16,9 @@ async def get_status() -> dict[str, Any]:
             response = await client.get(f"{OLLAMA_URL}/api/tags")
             response.raise_for_status()
         models = [model.get("name", "") for model in response.json().get("models", [])]
-        return {"available": True, "model": OLLAMA_MODEL, "models": models, "detail": None}
+        available = OLLAMA_MODEL in models
+        detail = None if available else f"Configured model {OLLAMA_MODEL} is not installed in Ollama."
+        return {"available": available, "model": OLLAMA_MODEL, "models": models, "detail": detail}
     except (httpx.HTTPError, ValueError) as exc:
         return {"available": False, "model": OLLAMA_MODEL, "models": [], "detail": str(exc)}
 
