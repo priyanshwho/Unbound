@@ -29,6 +29,8 @@ export type DashboardSnapshot = {
   version: 1
   dashboardId: string
   title: string
+  summary: string
+  warnings: string[]
   kpis: Array<{ id: string; label: string; value: string | number }>
   charts: Array<{ id: string; title: string; type: 'line' | 'bar' | 'horizontal_bar' | 'pie' | 'donut'; data: Array<{ label: string; value: string | number; series?: string }> }>
   filters: []
@@ -46,6 +48,8 @@ export function buildDashboardSnapshot(draft: DashboardDraft): DashboardSnapshot
     version: 1,
     dashboardId: draft.id,
     title: draft.title,
+    summary: draft.source.answer,
+    warnings: [...new Map(charts.flatMap(chart => chart.source.quality_issues ?? []).map(issue => [`${issue.kind}:${issue.column ?? ''}`, issue.message])).values()].slice(0, 32),
     kpis: headline ? [{ id: 'leading-value', label: headline.label, value: headline.value }] : [],
     charts: charts.map(chart => ({ id: chart.id, title: chart.title, type: chart.chartType === 'table' ? 'bar' : chart.chartType, data: data(chart.source) })),
     filters: [],

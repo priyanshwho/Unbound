@@ -78,6 +78,16 @@
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
+@media print {
+  @page { size: A4; margin: 16mm; }
+  :root { --background: #fff; --background-deep: #fff; --surface-1: #fff; --surface-2: #f6f8fb; --line: rgba(34, 65, 101, .2); --text: #14263b; --text-soft: #3d5066; --muted: #53667c; }
+  body { background: #fff !important; color: #14263b !important; print-color-adjust: exact; }
+  .report-toolbar { position: static !important; display: none !important; }
+  .report-document { max-width: none !important; padding: 0 !important; }
+  .report-document section, .report-document article { break-inside: avoid; background: #fff !important; box-shadow: none !important; }
+  .report-document svg { max-height: 250px; }
+}
+
 @layer components {
   .form-field { @apply block min-h-10 w-full rounded-lg border border-line-strong bg-surface-1 px-3 text-xs text-text outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50; }
 }

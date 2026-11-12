@@ -6,6 +6,8 @@ export const publicationSnapshotSchema = z.object({
   version: z.literal(1),
   dashboardId: z.string().uuid(),
   title: z.string().min(1).max(180),
+  summary: z.string().max(4000).optional(),
+  warnings: z.array(z.string().max(500)).max(32).optional(),
   kpis: z.array(z.object({ id: z.string().max(80), label: z.string().max(120), value: scalar, change: z.string().max(80).optional() }).strict()).max(12),
   charts: z.array(z.object({
     id: z.string().max(80),
