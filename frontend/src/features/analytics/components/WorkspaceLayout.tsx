@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Database, LayoutDashboard, Menu, MessageSquareText, Plus, Sparkles, X } from 'lucide-react'
 import { BrandMark } from '../../../components/ui/BrandMark'
 import type { AnalysisResponse } from '../../analysis-chat/types'
-import { saveDashboard } from '../dashboard-types'
+import { listDashboards, saveDashboard } from '../dashboard-types'
 
 type DatasetLink = { id: string; name: string }
 
@@ -35,6 +35,7 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [mode, setMode] = useState<'ask' | 'edit'>('ask')
   const [chats, setChats] = useState<ChatSummary[]>(getSavedChats)
+  const [dashboards] = useState(listDashboards)
   const [activeChatId, setActiveChatId] = useState(chats[0]?.id ?? '')
   const [question, setQuestion] = useState(chats[0]?.lastQuestion ?? '')
   const [lastQuestion, setLastQuestion] = useState(chats[0]?.lastQuestion ?? '')
@@ -62,7 +63,7 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
   function createDashboard() {
     if (!answer) return
     const dashboardId = crypto.randomUUID()
-    saveDashboard({ version: 1, id: dashboardId, title: answer.plan.title || 'Analysis dashboard', createdAt: new Date().toISOString(), source: answer, chartType: answer.plan.chart_type })
+    saveDashboard({ version: 1, id: dashboardId, revision: 0, title: answer.plan.title || 'Analysis dashboard', createdAt: new Date().toISOString(), source: answer, chartType: answer.plan.chart_type })
     navigate(`/analytics/dashboards/${dashboardId}`)
   }
 
@@ -150,6 +151,8 @@ export function WorkspaceLayout({ apiOnline, ollamaOnline, persistenceAvailable,
     <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">{chats.length ? chats.map(chat => <button type="button" key={chat.id} onClick={() => void openChat(chat)} className={`w-full truncate rounded-lg px-3 py-2.5 text-left text-[11px] transition ${chat.id === activeChatId ? 'bg-accent-soft text-accent' : 'text-text-soft hover:bg-surface-2'}`}>{chat.title}</button>) : <p className="px-1 py-2 text-[11px] leading-5 text-muted">Your conversations will appear here.</p>}</div>
     <div className="mt-7 flex items-center justify-between font-mono text-[9px] tracking-wider text-muted"><span>DATASETS</span><span>{datasets.length}</span></div>
     <div className="mt-2 space-y-1">{datasets.map(dataset => <a key={dataset.id} href={`#dataset-${dataset.id}`} onClick={() => setLeftOpen(false)} className="flex min-h-9 items-center gap-2 truncate rounded-lg px-3 text-[10px] text-text-soft hover:bg-surface-2"><Database size={13} className="shrink-0 text-accent"/><span className="truncate">{dataset.name}</span></a>)}</div>
+    <div className="mt-7 flex items-center justify-between font-mono text-[9px] tracking-wider text-muted"><span>DASHBOARDS</span><span>{dashboards.length}</span></div>
+    <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{dashboards.length ? dashboards.map(dashboard => <Link key={dashboard.id} to={`/analytics/dashboards/${dashboard.id}`} onClick={() => setLeftOpen(false)} className="flex min-h-9 items-center gap-2 truncate rounded-lg px-3 text-[10px] text-text-soft hover:bg-surface-2"><LayoutDashboard size={13} className="shrink-0 text-accent"/><span className="truncate">{dashboard.title}</span></Link>) : <p className="px-1 py-2 text-[10px] leading-5 text-muted">Create a dashboard from an analysis answer.</p>}</div>
     <div className="mt-auto rounded-xl border border-line bg-surface-1 p-3"><span className="inline-flex items-center gap-2 text-[10px] text-text-soft"><i className={`size-1.5 rounded-full ${apiOnline ? 'bg-lime' : 'bg-amber-400'}`}/>{apiOnline ? 'Local service connected' : 'Local service offline'}</span><p className="mb-0 mt-2 text-[10px] leading-5 text-muted">CSV files stay on this device. Remove a dataset to delete its local copy.</p></div>
   </>
 
