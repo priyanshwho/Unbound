@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Database, LayoutDashboard, Menu, MessageSquareText, Plus, Sparkles, X } from 'lucide-react'
+import { Database, FileText, LayoutDashboard, Menu, MessageSquareText, Plus, Sparkles, X } from 'lucide-react'
 import { BrandMark } from '../../../components/ui/BrandMark'
 import type { AnalysisResponse, GeneratedDashboard } from '../../analysis-chat/types'
 import { listDashboards, saveDashboard } from '../dashboard-types'
@@ -50,6 +50,7 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
   const [askError, setAskError] = useState('')
   const [asking, setAsking] = useState(false)
   const [buildingDashboard, setBuildingDashboard] = useState(false)
+  const [feedScrollNode, setFeedScrollNode] = useState<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!persistenceAvailable) return
@@ -84,7 +85,11 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
     return () => { active = false }
   }, [persistenceAvailable])
 
-  async function createDashboard() {
+  useEffect(() => {
+    if (turns.length) feedScrollNode?.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  }, [turns.length, feedScrollNode])
+
+  async function createDashboard(openReport = false) {
     if (!selectedDatasetId || buildingDashboard) return
     setBuildingDashboard(true)
     setAskError('')
@@ -95,7 +100,7 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
       const dashboardId = crypto.randomUUID()
       const charts = generated.charts.map(result => ({ id: crypto.randomUUID(), title: result.plan.title, source: result, chartType: result.plan.chart_type }))
       saveDashboard({ version: 1, id: dashboardId, revision: 0, title: generated.title, createdAt: new Date().toISOString(), source, chartType: charts[0]?.chartType ?? source.plan.chart_type, charts, kpis: generated.kpis })
-      navigate(`/analytics/dashboards/${dashboardId}`)
+      navigate(openReport ? `/analytics/reports/${dashboardId}` : `/analytics/dashboards/${dashboardId}`)
     } catch (reason) {
       setAskError(reason instanceof Error ? reason.message : 'Could not build a dashboard from this file.')
     } finally {
@@ -268,6 +273,7 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
       <div className="ml-auto flex items-center gap-2">
       <span className="mr-1 hidden items-center gap-2 text-[10px] text-muted sm:inline-flex"><i className={`size-1.5 rounded-full ${apiOnline && ollamaOnline ? 'bg-lime' : 'bg-amber-400'}`}/>{!apiOnline ? 'API offline' : ollamaOnline ? 'Ollama ready' : 'Ollama offline'}</span>
         <button type="button" onClick={() => void createDashboard()} disabled={!selectedDatasetId || !apiOnline || buildingDashboard} title="Build a dashboard from the selected CSV" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[10px] font-bold text-text-soft hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"><LayoutDashboard size={14}/>{buildingDashboard ? 'Building…' : 'Build dashboard'}</button>
+        <button type="button" onClick={() => void createDashboard(true)} disabled={!selectedDatasetId || !apiOnline || buildingDashboard} title="Generate a report from the selected CSV" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-accent px-3 text-[10px] font-bold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-45"><FileText size={14}/><span className="hidden sm:inline">Generate report</span></button>
         <button type="button" onClick={openDataManager} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[10px] font-bold text-text-soft hover:border-accent hover:text-accent"><Database size={14}/><span className="hidden sm:inline">Manage files</span></button>
         <button type="button" aria-label="Open assistant" onClick={() => setAssistantOpen(true)} className="grid size-10 place-items-center rounded-xl border border-line-strong bg-surface-1 text-accent hover:bg-accent-soft xl:hidden"><MessageSquareText size={16}/></button>
         <Link to="/" className="hidden min-h-10 items-center rounded-xl px-3 text-[10px] font-semibold text-text-soft hover:bg-surface-2 sm:inline-flex">Exit</Link>
@@ -275,7 +281,7 @@ export function WorkspaceLayout({ initialChatId, apiOnline, ollamaOnline, persis
     </header>
     <div className="grid min-h-[calc(100svh-4rem)] lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[230px_minmax(0,1fr)_320px]">
       <aside className="hidden flex-col border-r border-line bg-background-deep p-4 lg:flex">{sidebar}</aside>
-      <div className="min-w-0 overflow-y-auto">{analysisCanvas}</div>
+      <div ref={setFeedScrollNode} className="min-w-0 overflow-y-auto">{analysisCanvas}</div>
       <aside className="hidden flex-col border-l border-line bg-background-deep p-4 xl:flex">{assistant}</aside>
     </div>
     {leftOpen && <div className="fixed inset-0 z-50 bg-black/45 lg:hidden" onClick={() => setLeftOpen(false)}><aside className="flex h-full w-[min(86vw,320px)] flex-col border-r border-line bg-background-deep p-4 shadow-2xl" onClick={event => event.stopPropagation()}><div className="mb-5 flex items-center justify-between"><span className="font-display text-sm font-bold">Workspace</span><button type="button" aria-label="Close chat history" onClick={() => setLeftOpen(false)} className="grid size-10 place-items-center rounded-xl hover:bg-surface-2"><X size={17}/></button></div>{sidebar}</aside></div>}
