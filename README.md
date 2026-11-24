@@ -6,8 +6,9 @@ Unbound is a local-first CSV analytics workspace. The landing page lives at `/`;
 
 - Responsive landing sections for product features, workflow, about, FAQ, contact, and footer.
 - Dark and light blue themes with a lime accent; Manrope, DM Sans, and DM Mono typography.
-- Upload up to five CSV files to the local companion, profile their schemas, review column roles, preview joins, and remove local data.
-- Ask questions in plain language. Ollama returns a constrained analysis plan; DuckDB validates and calculates it locally.
+- Upload one CSV per workspace, inspect its schema and data quality, and remove it locally when finished.
+- Ask questions and follow-ups in plain language. Ollama receives the column names and types, the current question, and up to four prior questions and plans from the same CSV and chat.
+- DuckDB validates the plan against the uploaded schema and runs parameterized SELECT queries through a read-only connection. Each answer shows the result, a chart for grouped results, and the executed SQL and parameters.
 - Create a dashboard from an answer, change chart styles, preview AI-requested analysis edits, and keep local drafts and revisions.
 - Optionally sync chat, dataset, and dashboard metadata to Neon. Publish reviewed aggregate snapshots as read-only share links.
 
@@ -45,6 +46,24 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:5173`. Uploads and the DuckDB database are stored below `backend/data/`, which Git ignores. Deleting a dataset removes its local file, DuckDB table, and metadata.
+
+### Try a follow-up
+
+Save these rows as `sales.csv` and upload the file in Analytics:
+
+```csv
+date,region,sales
+2026-01-01,West,12
+2026-01-06,East,25
+2026-02-01,West,8
+2026-02-03,East,15
+```
+
+1. Ask “Show total sales by region.” Expect East 40 and West 20.
+2. Ask “Show that by month for West only.” Expect January 12 and February 8.
+3. Open **Calculation and result rows** to inspect the query. The filter appears as a SQL placeholder with `West` shown separately.
+
+Chat currently supports one aggregation and optional grouping, calendar windows, and exact-match filters. Schema metadata and chat text go to the configured Ollama URL; CSV rows are queried in DuckDB and do not go to the planner.
 
 ## Optional Neon persistence
 

@@ -1,10 +1,10 @@
-import type { AnalysisResponse, GeneratedDashboard } from './types'
+import type { AnalysisContextTurn, AnalysisResponse, GeneratedDashboard } from './types'
 
-export async function askDataset(datasetId: string, question: string): Promise<AnalysisResponse> {
+export async function askDataset(datasetId: string, question: string, context: AnalysisContextTurn[] = []): Promise<AnalysisResponse> {
   const response = await fetch('/api/v1/analysis/ask', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dataset_id: datasetId, question }),
+    body: JSON.stringify({ dataset_id: datasetId, question, context }),
   })
   const body = await response.text()
   let result: unknown

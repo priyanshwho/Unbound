@@ -53,22 +53,37 @@ class JoinPreview(BaseModel):
     duplicate_right_keys: int = Field(ge=0)
 
 
+class AnalysisFilter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    column: str = Field(min_length=1, max_length=256)
+    value: str = Field(max_length=500)
+
+
 class AnalysisPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     measure: str | None = None
     group_by: str | None = None
-    aggregation: Literal["sum", "average", "count", "min", "max"]
+    aggregation: Literal["sum", "average", "count", "min", "max", "unsupported"]
     date_column: str | None = None
     period: Literal["all_time", "last_month", "last_30_days", "this_month", "this_year"] = "all_time"
     date_grain: Literal["day", "month", "year"] | None = None
     chart_type: Literal["line", "bar", "horizontal_bar", "pie", "table"] = "bar"
     title: str = Field(min_length=1, max_length=120)
+    filters: list[AnalysisFilter] = Field(default_factory=list, max_length=5)
+    unsupported_reason: str | None = Field(default=None, max_length=300)
+
+
+class AnalysisContextTurn(BaseModel):
+    question: str = Field(min_length=3, max_length=1000)
+    plan: AnalysisPlan
 
 
 class AnalysisRequest(BaseModel):
     dataset_id: str = Field(pattern=r"^[0-9a-f]{32}$")
     question: str = Field(min_length=3, max_length=1000)
+    context: list[AnalysisContextTurn] = Field(default_factory=list, max_length=4)
 
 
 class DashboardGenerateRequest(BaseModel):
@@ -80,6 +95,8 @@ class AnalysisResponse(BaseModel):
     answer: str
     plan: AnalysisPlan
     rows: list[dict[str, Any]]
+    sql: str | None = None
+    parameters: list[str] = Field(default_factory=list)
     quality_issues: list[DataQualityIssue] = Field(default_factory=list)
 
 

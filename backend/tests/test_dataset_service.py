@@ -5,10 +5,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi.testclient import TestClient
+
 from app.db import duckdb as duckdb_adapter
 from app.contracts import AnalysisPlan
-from app.services.analysis_service import complete_plan, run_analysis
+from app.services.analysis_service import complete_plan, execute_analysis, format_answer, run_analysis
 from app.services import dataset_service
+from app.main import app
 
 
 class DatasetPersistenceTests(unittest.TestCase):
@@ -48,8 +51,9 @@ class DatasetPersistenceTests(unittest.TestCase):
 
     def test_join_preview_reports_duplicate_multiplication(self) -> None:
         left_id, right_id = "b" * 32, "c" * 32
-        dataset_service.profile_csv(self.write_csv(left_id, "sku\na\na\nb\n"), left_id, "orders.csv")
-        dataset_service.profile_csv(self.write_csv(right_id, "sku,name\na,Mug\nb,Book\n"), right_id, "products.csv")
+        with patch.object(dataset_service, "MAX_DATASETS", 2):
+            dataset_service.profile_csv(self.write_csv(left_id, "sku\na\na\nb\n"), left_id, "orders.csv")
+            dataset_service.profile_csv(self.write_csv(right_id, "sku,name\na,Mug\nb,Book\n"), right_id, "products.csv")
 
         result = dataset_service.preview_join(left_id, "sku", right_id, "sku")
 
@@ -79,6 +83,52 @@ class DatasetPersistenceTests(unittest.TestCase):
         result = run_analysis(dataset_id, plan)
 
         self.assertEqual(result, [{"category": "Book", "value": 25}, {"category": "Mug", "value": 20}])
+
+    def test_filtered_timeline_uses_bound_values_and_reports_highest_month(self) -> None:
+        dataset_id = "4" * 32
+        dataset_service.profile_csv(
+            self.write_csv(dataset_id, "date,region,sales\n2026-01-01,O'Fallon,10\n2026-02-01,O'Fallon,35\n2026-02-01,East,100\n"),
+            dataset_id,
+            "sales.csv",
+        )
+        plan = AnalysisPlan(
+            aggregation="sum", measure="sales", group_by="date", date_column="date",
+            date_grain="month", chart_type="line", title="Monthly Sales",
+            filters=[{"column": "region", "value": "O'Fallon"}],
+        )
+        rows, sql, parameters = execute_analysis(dataset_id, plan)
+        self.assertEqual([row["value"] for row in rows], [10, 35])
+        self.assertIn('CAST("region" AS VARCHAR) = ?', sql)
+        self.assertNotIn("O'Fallon", sql)
+        self.assertEqual(parameters, ["O'Fallon"])
+        self.assertIn("35 for 2026-02", format_answer(plan, rows))
+
+    def test_ask_route_passes_context_and_returns_follow_up_calculation(self) -> None:
+        with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+            upload = client.post(
+                "/api/v1/datasets/upload",
+                files={"file": ("sales.csv", b"region,sales\nWest,12\nWest,8\nEast,25\n", "text/csv")},
+            )
+            self.assertEqual(upload.status_code, 200, upload.text)
+            dataset_id = upload.json()["id"]
+            initial = AnalysisPlan(aggregation="sum", measure="sales", group_by="region", title="Sales by region")
+            follow_up = AnalysisPlan(
+                aggregation="sum", measure="sales", title="West sales",
+                filters=[{"column": "region", "value": "West"}],
+            )
+            with patch("app.api.v1.endpoints.analysis.propose_plan", side_effect=[initial, follow_up]) as planner:
+                first = client.post("/api/v1/analysis/ask", json={"dataset_id": dataset_id, "question": "Show sales by region"})
+                self.assertEqual(first.status_code, 200, first.text)
+                self.assertEqual(first.json()["rows"], [{"category": "East", "value": 25}, {"category": "West", "value": 20}])
+                second = client.post("/api/v1/analysis/ask", json={
+                    "dataset_id": dataset_id,
+                    "question": "What about only West?",
+                    "context": [{"question": "Show sales by region", "plan": first.json()["plan"]}],
+                })
+                self.assertEqual(second.status_code, 200, second.text)
+                self.assertEqual(second.json()["rows"], [{"value": 20}])
+                self.assertEqual(second.json()["parameters"], ["West"])
+                self.assertEqual(planner.call_args.args[2][0].plan.group_by, "region")
 
     def test_invalid_column_is_rejected_before_query(self) -> None:
         dataset_id = "f" * 32

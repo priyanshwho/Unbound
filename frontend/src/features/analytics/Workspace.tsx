@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent 
 import { WorkspaceLayout } from './components/WorkspaceLayout'
 import { AlertTriangle, Check, Database, FileSpreadsheet, LoaderCircle, Plus, Trash2, Upload, X } from 'lucide-react'
 import { askDataset, generateDashboard as generateDatasetDashboard } from '../analysis-chat/api'
+import type { AnalysisContextTurn } from '../analysis-chat/types'
 
 type ColumnProfile = { name: string; type: string; nulls: number; distinct: number; samples: string[] }
 type QualityIssue = { kind: 'missing_values' | 'duplicate_ids' | 'duplicate_rows' | 'outliers'; severity: 'high' | 'medium' | 'low'; column: string | null; count: number; message: string }
@@ -219,8 +220,8 @@ export default function Workspace({ initialChatId }: { initialChatId?: string })
     setNotice(`${removed?.name ?? 'File'} was removed from this workspace and local storage.`)
   }
 
-  async function askQuestion(question: string, datasetId: string) {
-    return askDataset(datasetId, question)
+  async function askQuestion(question: string, datasetId: string, context: AnalysisContextTurn[]) {
+    return askDataset(datasetId, question, context)
   }
 
   async function buildDashboard(datasetId: string) {

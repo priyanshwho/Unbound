@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from ....contracts import AnalysisPlan, AnalysisRequest, AnalysisResponse, DashboardGenerateRequest, GeneratedDashboard, OllamaStatus
-from ....services.analysis_service import complete_plan, format_answer, run_analysis
+from ....services.analysis_service import complete_plan, execute_analysis, format_answer
 from ....services.dataset_service import list_datasets
 from ....services.ollama_client import get_status, propose_plan
 
@@ -13,9 +14,10 @@ router = APIRouter()
 
 
 def _dashboard_result(dataset_id: str, plan: AnalysisPlan, issues: list[dict]) -> dict:
-    rows = run_analysis(dataset_id, plan)
-    relevant_issues = [issue for issue in issues if issue.get("kind") == "duplicate_rows" or issue.get("column") in {plan.measure, plan.group_by, plan.date_column}]
-    return {"dataset_id": dataset_id, "answer": format_answer(plan, rows), "plan": plan, "rows": rows, "quality_issues": relevant_issues}
+    rows, sql, parameters = execute_analysis(dataset_id, plan)
+    used_columns = {plan.measure, plan.group_by, plan.date_column} | {item.column for item in plan.filters}
+    relevant_issues = [issue for issue in issues if issue.get("kind") == "duplicate_rows" or issue.get("column") in used_columns]
+    return {"dataset_id": dataset_id, "answer": format_answer(plan, rows), "plan": plan, "rows": rows, "sql": sql, "parameters": parameters, "quality_issues": relevant_issues}
 
 
 @router.get("/ollama/status", response_model=OllamaStatus)
@@ -25,16 +27,17 @@ async def ollama_status() -> dict:
 
 @router.post("/analysis/ask", response_model=AnalysisResponse)
 async def ask_question(request: AnalysisRequest) -> dict:
-    dataset = next((item for item in list_datasets() if item["id"] == request.dataset_id), None)
+    datasets = await run_in_threadpool(list_datasets)
+    dataset = next((item for item in datasets if item["id"] == request.dataset_id), None)
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    plan = await propose_plan(request.question, dataset["columns"])
+    plan = await propose_plan(request.question, dataset["columns"], request.context)
     plan = complete_plan(plan, request.question, dataset["columns"])
-    return _dashboard_result(request.dataset_id, plan, dataset.get("quality_issues", []))
+    return await run_in_threadpool(_dashboard_result, request.dataset_id, plan, dataset.get("quality_issues", []))
 
 
 @router.post("/analysis/dashboard", response_model=GeneratedDashboard)
-async def generate_dashboard(request: DashboardGenerateRequest) -> dict:
+def generate_dashboard(request: DashboardGenerateRequest) -> dict:
     datasets = list_datasets()
     dataset = next((item for item in datasets if item["id"] == request.dataset_id), None)
     if dataset is None:

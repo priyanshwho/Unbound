@@ -29,6 +29,10 @@ def connect_database() -> duckdb.DuckDBPyConnection:
     return connection
 
 
+def connect_analysis_database() -> duckdb.DuckDBPyConnection:
+    return duckdb.connect(str(DUCKDB_PATH), read_only=True, config={"enable_external_access": "false"})
+
+
 def quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
 

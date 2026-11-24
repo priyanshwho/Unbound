@@ -7,13 +7,18 @@ export type AnalysisPlan = {
   date_grain: 'day' | 'month' | 'year' | null
   chart_type: 'line' | 'bar' | 'horizontal_bar' | 'pie' | 'table'
   title: string
+  filters?: Array<{ column: string; value: string }>
 }
+
+export type AnalysisContextTurn = { question: string; plan: AnalysisPlan }
 
 export type AnalysisResponse = {
   dataset_id: string
   answer: string
   plan: AnalysisPlan
   rows: Array<Record<string, string | number | null>>
+  sql?: string | null
+  parameters?: string[]
   quality_issues: Array<{ kind: string; severity: 'high' | 'medium' | 'low'; column: string | null; count: number; message: string }>
 }
 
